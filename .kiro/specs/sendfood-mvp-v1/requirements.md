@@ -155,4 +155,50 @@ admin. Bahasa antarmuka: Bahasa Indonesia sehari-hari.
 - R10.5: Klaim pesanan oleh kurir boleh; admin tetap boleh menimpa
   (menugaskan ulang).
 - R10.6: Bukti antar dibuat setelah MVP.
-
+- R10.7: Masuk dengan Google (OAuth) — desain, BELUM dibangun. Dijadwalkan
+  setelah pemilihan lokasi di peta, setelah Google Cloud milik pemilik siap.
+  - R10.7.1 (keputusan pemilik 12 Nov 2026, 17:39 WIB): **admin TIDAK boleh
+    memakai Google.** Admin hanya masuk dengan email + kata sandi. Penjual,
+    kurir, dan pelanggan boleh memakai Google.
+    - Tombol "Masuk dengan Google" tidak boleh tampil di alur masuk admin.
+      Karena halaman Masuk dipakai bersama, alur admin perlu jalan masuk
+      sendiri tanpa tombol Google (bentuknya diputuskan saat dibangun).
+    - Penolakan WAJIB ditegakkan di server, bukan hanya disembunyikan di UI:
+      sesi dari login Google untuk akun berperan admin harus ditolak, dan
+      tidak boleh mendapat hak admin di RPC/RLS. Ini juga berlaku bila akun
+      admin punya identitas Google yang tertaut lewat email yang sama.
+      Mekanisme di backend (mis. Supabase Auth Hook saat token dibuat, atau
+      cek metode login di `current_app_role()`) diputuskan oleh backend.
+  - R10.7.2 Pihak ketiga (disiapkan pemilik): proyek Google Cloud, OAuth
+    consent screen (nama aplikasi, logo, email dukungan, URL kebijakan
+    privasi), dan OAuth client tipe Web. Redirect URI yang diizinkan:
+    `https://udizfphgicnavqrlyuaf.supabase.co/auth/v1/callback`.
+  - R10.7.3 Backend: aktifkan provider Google di Supabase Auth dengan client
+    ID dan client secret. Secret hanya di server, tidak pernah di `VITE_*`.
+    Tambahkan URL aplikasi (domain produksi, preview, localhost) ke daftar
+    redirect yang diizinkan. Trigger pendaftaran tetap membuat profil
+    `customer`; peran lain tetap hanya diatur server.
+  - R10.7.4 Frontend: tombol "Masuk dengan Google" di halaman Masuk dan
+    Daftar memakai `supabase.auth.signInWithOAuth({ provider: 'google' })`.
+    Tombol disembunyikan di mode demo dan di alur admin (R10.7.1).
+  - R10.7.5 Frontend: rute callback yang menyelesaikan sesi lalu kembali ke
+    `?next=` dengan pemeriksaan jalur aman yang sama (`safeNextPath`, hanya
+    jalur internal). Rute ini menambah entri smoke test.
+  - R10.7.6 Frontend: langkah "Lengkapi nomor HP" setelah login Google
+    pertama, karena Google tidak memberi nomor HP.
+  - R10.7.7 Email yang sama: Supabase menautkan identitas dengan alamat
+    email yang sama ke satu pengguna, jadi akun email + kata sandi dan akun
+    Google dengan email yang sama menjadi satu akun dengan peran yang sama.
+    - Risiko: seseorang mendaftar dengan email orang lain lalu tidak
+      mengonfirmasinya; saat pemilik email asli masuk dengan Google,
+      identitasnya bisa tertaut ke akun milik penyerang. Temuan keamanan
+      tahun ini (ANT-2026-7WJV60DR) menggambarkan penautan berdasarkan
+      email tanpa memeriksa verifikasi.
+    - Wajib: "Confirm email" tetap aktif untuk pendaftaran email, pastikan
+      versi Supabase Auth di staging/produksi sudah berisi perbaikan, dan
+      hapus akun yang lama tidak dikonfirmasi.
+  - R10.7.8 PERTANYAAN TERBUKA (belum diputuskan pemilik): di halaman Daftar,
+    apakah pendaftaran tetap hanya untuk pelanggan, atau menawarkan pilihan
+    peran (pelanggan / penjual / kurir, dengan persetujuan admin untuk
+    penjual dan kurir)? Apa pun keputusannya, peran admin TIDAK PERNAH bisa
+    dipilih saat mendaftar.
