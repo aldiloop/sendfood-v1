@@ -159,5 +159,9 @@ export type Page<T> = {
   hasMore: boolean
 }
 
-export type StoreSort = 'name' | 'nearest' | 'farthest' | 'delivery_fee'
-export type ProductSort = 'name' | 'nearest' | 'farthest' | 'cheapest' | 'priciest' | 'delivery_fee'
+/**
+ * Urutan yang ditawarkan. RPC juga menerima 'delivery_fee', tetapi itu mengurutkan
+ * tarif lama tersimpan (bukan ongkir dari jarak), jadi sengaja tidak ada di sini.
+ */
+export type StoreSort = 'name' | 'nearest' | 'farthest'
+export type ProductSort = 'name' | 'nearest' | 'farthest' | 'cheapest' | 'priciest'
