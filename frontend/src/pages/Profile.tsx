@@ -9,6 +9,7 @@ import { Loading } from '../components/Loading'
 import { useAuth } from '../context/auth'
 import { account, ApiError, errorMessage, resetDemoData, validateAddress, type AddressInput } from '../lib/api'
 import { ROLE_LABEL } from '../lib/roles'
+import { parseCoord } from '../lib/geo'
 import type { CustomerAddress } from '../lib/types'
 
 export default function Profile() {
@@ -213,13 +214,6 @@ function AddressCard({ address, onDeleted }: { address: CustomerAddress; onDelet
       )}
     </Card>
   )
-}
-
-function parseCoord(value: string): number | null {
-  const v = value.trim().replace(',', '.')
-  if (!v) return null
-  const n = Number(v)
-  return Number.isFinite(n) ? n : Number.NaN
 }
 
 function AddressForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (a: CustomerAddress) => void }) {

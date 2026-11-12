@@ -60,11 +60,12 @@ export function formatRupiah(amount: number): string {
   return `${amount < 0 ? '-' : ''}Rp${abs}`
 }
 
-/** "12 Nov 2026, 14.05" */
+/** "12 Nov 2026, 14.05" (WIB, sama dengan jam buka warung) */
 export function formatDateTime(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '-'
   return date.toLocaleString('id-ID', {
+    timeZone: 'Asia/Jakarta',
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -77,7 +78,7 @@ export function formatDateTime(iso: string): string {
 export function formatTime(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
 }
 
 /* ------------------------------------------------------------------ */

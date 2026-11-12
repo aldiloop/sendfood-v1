@@ -86,3 +86,8 @@ export function formatDistance(meters: number): string {
   const km = meters / 1000
   return `${km.toLocaleString('id-ID', { maximumFractionDigits: 2 })} km`
 }
+
+/** Radius layanan efektif warung (km): radius tersimpan, dibatasi maksimum 5 km (R7.3). */
+export function effectiveRadiusKm(radiusKm: number | null | undefined): number {
+  return Math.min(Math.max(radiusKm ?? 0, 0), MAX_RADIUS_M / 1000)
+}

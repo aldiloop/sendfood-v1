@@ -1249,3 +1249,36 @@ export const account: AccountApi = isMockMode ? demoAccount : liveAccount
 export function isValidEmail(email: string): boolean {
   return EMAIL_RE.test(email.trim())
 }
+
+/* ------------------------------------------------------------------ */
+/* Pencarian satu warung / satu pesanan                                */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Kontrak RPC belum punya "ambil satu warung" atau "ambil satu pesanan", dan aplikasi
+ * tidak membaca tabel katalog/riwayat langsung (R9.1). Jadi keduanya mencari lewat
+ * list_stores / list_my_orders per halaman (100 baris), dengan batas halaman supaya
+ * tidak berputar tanpa akhir. Cukup untuk skala satu desa.
+ */
+const LOOKUP_PAGE = 100
+const LOOKUP_MAX_PAGES = 10
+
+export async function getStore(storeId: string): Promise<StoreListItem | null> {
+  for (let page = 0; page < LOOKUP_MAX_PAGES; page++) {
+    const res = await api.listStores({ limit: LOOKUP_PAGE, offset: page * LOOKUP_PAGE })
+    const found = res.items.find((s) => s.id === storeId)
+    if (found) return found
+    if (!res.hasMore) return null
+  }
+  return null
+}
+
+export async function getMyOrder(orderId: string): Promise<Order | null> {
+  for (let page = 0; page < LOOKUP_MAX_PAGES; page++) {
+    const res = await api.listMyOrders({ limit: LOOKUP_PAGE, offset: page * LOOKUP_PAGE })
+    const found = res.items.find((o) => o.order_id === orderId)
+    if (found) return found
+    if (!res.hasMore) return null
+  }
+  return null
+}
