@@ -28,7 +28,8 @@ admin. Bahasa antarmuka: Bahasa Indonesia sehari-hari.
 ## 3. Pelanggan
 
 - R3.1: Beranda menampilkan hero sambutan, pencarian warung/menu,
-  Makanan Populer, dan Daftar Warung Aktif (nama, alamat, jam, badge
+  Menu Pilihan (dulu "Makanan Populer"; belum memakai data popularitas),
+  dan Daftar Warung Aktif (nama, alamat, jam, badge
   Buka/Tutup, ongkir mulai Rp2.000, radius).
 - R3.2: Pencarian bisa memfilter dan mengurutkan hasil (nama, terdekat,
   terjauh, termurah, termahal). TIDAK ada urutan "ongkir": RPC
@@ -140,3 +141,18 @@ admin. Bahasa antarmuka: Bahasa Indonesia sehari-hari.
   `aldiloop/sendfood` (branch `backend-mvp-hardening`) dan live di
   staging — rebuild ini memakai kontrak itu, bukan membuat backend
   baru dari nol.
+
+## 10. Keputusan pemilik (12 Nov 2026, setelah Task 8)
+
+- R10.1: Warung tutup menurut jam buka: aplikasi memberi peringatan,
+  server yang menegakkan (menolak pesanan). Sampai server menolak,
+  checkout tetap diblokir di aplikasi.
+- R10.2: "Makanan Populer" diganti "Menu Pilihan" sampai ada data
+  popularitas sungguhan.
+- R10.3: Nomor HP pembeli dibagikan ke kurir HANYA setelah kurir
+  ditugaskan ke pesanan itu (perlu dukungan backend).
+- R10.4: Status otomatis: polling tiap 20–30 detik; Realtime nanti.
+- R10.5: Klaim pesanan oleh kurir boleh; admin tetap boleh menimpa
+  (menugaskan ulang).
+- R10.6: Bukti antar dibuat setelah MVP.
+

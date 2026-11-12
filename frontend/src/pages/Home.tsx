@@ -12,7 +12,8 @@ import { useAuth } from '../context/auth'
 import { api } from '../lib/api'
 import { useAsync } from '../lib/useAsync'
 
-const POPULAR_LIMIT = 6
+// "Menu Pilihan" (keputusan pemilik 12 Nov): belum ada data popularitas, jadi tidak diberi label "populer".
+const PICKS_LIMIT = 6
 
 export default function Home() {
   const { user } = useAuth()
@@ -20,7 +21,7 @@ export default function Home() {
   const [q, setQ] = useState('')
 
   const stores = useAsync(() => api.listStores({ sort: 'name', limit: 20 }), 'home-stores')
-  const products = useAsync(() => api.searchProducts({ sort: 'name', limit: POPULAR_LIMIT }), 'home-products')
+  const products = useAsync(() => api.searchProducts({ sort: 'name', limit: PICKS_LIMIT }), 'home-picks')
 
   function onSearch(e: FormEvent) {
     e.preventDefault()
@@ -57,9 +58,9 @@ export default function Home() {
 
       <BatikStrip className="rounded-full" />
 
-      <section className="space-y-3" aria-labelledby="popular-title">
-        <h2 id="popular-title" className="text-xl font-bold">
-          Makanan Populer
+      <section className="space-y-3" aria-labelledby="picks-title">
+        <h2 id="picks-title" className="text-xl font-bold">
+          Menu Pilihan
         </h2>
         {products.loading && <Loading text="Memuat menu..." />}
         {products.error && (
