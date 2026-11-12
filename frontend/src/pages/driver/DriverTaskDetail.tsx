@@ -72,7 +72,7 @@ export default function DriverTaskDetail() {
 
   return (
     <div className="space-y-5">
-      <Link to="/driver/tasks" className="inline-flex min-h-12 items-center text-base font-semibold text-soga underline">
+      <Link to="/driver/tasks" className="link">
         ← Semua tugas
       </Link>
 
@@ -100,7 +100,7 @@ export default function DriverTaskDetail() {
         {store && <p>{store.address}</p>}
         <div className="flex flex-wrap gap-3">
           {store?.phone && (
-            <a href={tel(store.phone)} className="inline-flex min-h-12 items-center gap-2 font-semibold text-soga underline">
+            <a href={tel(store.phone)} className="link">
               <Icon name="phone" size={20} /> {store.phone}
             </a>
           )}
@@ -109,7 +109,7 @@ export default function DriverTaskDetail() {
               href={mapUrl(store.latitude!, store.longitude!)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-12 items-center gap-2 font-semibold text-soga underline"
+              className="link"
             >
               <Icon name="pin" size={20} /> Buka peta warung
             </a>
@@ -128,7 +128,7 @@ export default function DriverTaskDetail() {
             href={mapUrl(order.delivery_latitude!, order.delivery_longitude!)}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-12 items-center gap-2 font-semibold text-soga underline"
+            className="link"
           >
             <Icon name="pin" size={20} /> Buka peta tujuan
           </a>

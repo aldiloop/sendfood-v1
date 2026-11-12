@@ -39,7 +39,7 @@ export default function Register() {
           </p>
           <Link
             to="/login"
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-soga px-5 text-base font-semibold text-white"
+            className="btn-primary w-full"
           >
             Pakai akun contoh
           </Link>
@@ -58,7 +58,7 @@ export default function Register() {
           </p>
           <Link
             to="/login"
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-soga px-5 text-base font-semibold text-white"
+            className="btn-primary w-full"
           >
             Ke halaman Masuk
           </Link>

@@ -51,9 +51,7 @@ export default function AdminUsers() {
               role="tab"
               aria-selected={role === r}
               onClick={() => setRole(r)}
-              className={`min-h-12 rounded-xl border-2 px-1 text-base font-semibold ${
-                role === r ? 'border-soga bg-soga text-white' : 'border-line bg-white text-ink'
-              }`}
+              className="tab"
             >
               {r === 'all' ? 'Semua' : ROLE_LABEL[r]} ({n})
             </button>
@@ -66,14 +64,14 @@ export default function AdminUsers() {
       {list.length === 0 ? (
         <EmptyState icon="users" title="Tidak ada yang cocok" />
       ) : (
-        <ul className="divide-y divide-line rounded-2xl border border-line bg-white">
+        <ul className="card divide-y divide-line p-0">
           {list.map((u) => (
             <li key={u.id} className="flex items-center justify-between gap-3 p-4">
               <div className="min-w-0">
                 <p className="text-base font-bold">{u.full_name || 'Tanpa nama'}</p>
                 <p className="text-base text-ink/80">
                   {u.phone ? (
-                    <a href={`tel:${u.phone.replace(/[^\d+]/g, '')}`} className="inline-flex min-h-12 items-center text-soga underline">
+                    <a href={`tel:${u.phone.replace(/[^\d+]/g, '')}`} className="link font-normal">
                       {u.phone}
                     </a>
                   ) : (

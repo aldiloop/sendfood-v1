@@ -10,7 +10,7 @@ export default function NotFound() {
       </p>
       <Link
         to="/"
-        className="inline-flex min-h-12 items-center justify-center rounded-xl bg-soga px-6 text-base font-semibold text-white"
+        className="btn-primary"
       >
         Kembali ke Beranda
       </Link>

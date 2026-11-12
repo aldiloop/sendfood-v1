@@ -19,7 +19,7 @@ export function StoreCard({ store }: { store: StoreListItem }) {
   return (
     <Link
       to={`/stores/${store.id}`}
-      className="block rounded-2xl border border-line bg-white p-4 hover:border-soga"
+      className="card-link"
       aria-label={`${store.name}, lihat menu`}
     >
       <div className="flex items-start justify-between gap-3">

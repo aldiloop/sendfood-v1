@@ -174,7 +174,7 @@ export default function Checkout() {
           ))}
         </ul>
         {unavailable.length > 0 && (
-          <Link to="/cart" className="inline-flex min-h-12 items-center font-semibold text-soga underline">
+          <Link to="/cart" className="link">
             Ubah keranjang
           </Link>
         )}
@@ -184,7 +184,7 @@ export default function Checkout() {
       <fieldset className="space-y-3">
         <legend className="text-xl font-bold">Antar ke mana?</legend>
         {addresses.map((a) => (
-          <label key={a.id} className="flex min-h-12 cursor-pointer items-start gap-3 rounded-xl border-2 border-line bg-white p-3 has-checked:border-soga">
+          <label key={a.id} className="choice items-start">
             <input type="radio" name="addr" className="mt-1 size-5 accent-soga" checked={selectedId === a.id} onChange={() => setChoice(a.id)} />
             <span className="text-base">
               <span className="block font-bold">{a.label}</span>
@@ -192,7 +192,7 @@ export default function Checkout() {
             </span>
           </label>
         ))}
-        <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border-2 border-line bg-white p-3 has-checked:border-soga">
+        <label className="choice">
           <input type="radio" name="addr" className="size-5 accent-soga" checked={selectedId === NEW} onChange={() => setChoice(NEW)} />
           <span className="text-base font-bold">{addresses.length ? 'Alamat lain' : 'Tulis alamat'}</span>
         </label>

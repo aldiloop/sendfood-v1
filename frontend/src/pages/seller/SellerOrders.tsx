@@ -69,9 +69,7 @@ function SellerOrderList({ filter, onFilter }: { filter: Filter; onFilter: (f: F
               role="tab"
               aria-selected={filter === f.value}
               onClick={() => onFilter(f.value)}
-              className={`min-h-12 rounded-xl border-2 px-1 text-base font-semibold ${
-                filter === f.value ? 'border-soga bg-soga text-white' : 'border-line bg-white text-ink'
-              }`}
+              className="tab"
             >
               {f.label}
               {n ? ` (${n})` : ''}
@@ -134,7 +132,7 @@ function SellerOrderDetail({ orderId, onBack }: { orderId: string; onBack: () =>
 
   return (
     <div className="space-y-5">
-      <Link to="/seller/orders" className="inline-flex min-h-12 items-center text-base font-semibold text-soga underline">
+      <Link to="/seller/orders" className="link">
         ← Semua pesanan
       </Link>
       <section className="space-y-2">

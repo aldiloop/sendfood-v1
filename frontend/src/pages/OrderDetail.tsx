@@ -206,7 +206,7 @@ function CancelForm({ orderId, storePhone, onDone }: { orderId: string; storePho
                 {storePhone && (
                   <a
                     href={`tel:${storePhone.replace(/[^\d+]/g, '')}`}
-                    className="inline-flex min-h-12 items-center justify-center rounded-xl border-2 border-soga px-5 font-semibold text-soga"
+                    className="btn-secondary"
                   >
                     Telepon warung ({storePhone})
                   </a>

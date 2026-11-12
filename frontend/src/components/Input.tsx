@@ -6,8 +6,6 @@ type FieldBase = {
   error?: string | null
 }
 
-const control =
-  'block w-full rounded-xl border-2 bg-white px-4 py-3 text-base text-ink placeholder:text-ink/55 min-h-12'
 
 function describedBy(id: string, hint?: string, error?: string | null) {
   return [hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') || undefined
@@ -41,7 +39,7 @@ export function Input({ label, hint, error, className = '', ...rest }: FieldBase
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(id, hint, error)}
-        className={`${control} ${error ? 'border-terra' : 'border-line focus:border-soga'}`}
+        className="input"
         {...rest}
       />
       <Extra id={id} hint={hint} error={error} />
@@ -67,7 +65,7 @@ export function TextArea({
         rows={3}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(id, hint, error)}
-        className={`${control} ${error ? 'border-terra' : 'border-line focus:border-soga'}`}
+        className="input"
         {...rest}
       />
       <Extra id={id} hint={hint} error={error} />

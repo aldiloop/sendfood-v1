@@ -13,20 +13,20 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/profile', label: 'Akun', icon: 'user' },
   ],
   seller: [
-    { to: '/seller', label: 'Ringkasan', icon: 'home', end: true },
+    { to: '/seller', label: 'Utama', icon: 'home', end: true },
     { to: '/seller/orders', label: 'Pesanan', icon: 'receipt' },
     { to: '/seller/products', label: 'Menu', icon: 'bowl' },
     { to: '/seller/store', label: 'Warung', icon: 'store' },
     { to: '/profile', label: 'Akun', icon: 'user' },
   ],
   driver: [
-    { to: '/driver', label: 'Ringkasan', icon: 'home', end: true },
+    { to: '/driver', label: 'Utama', icon: 'home', end: true },
     { to: '/driver/tasks', label: 'Tugas', icon: 'truck' },
     { to: '/driver/history', label: 'Riwayat', icon: 'list' },
     { to: '/profile', label: 'Akun', icon: 'user' },
   ],
   admin: [
-    { to: '/admin', label: 'Ringkasan', icon: 'home', end: true },
+    { to: '/admin', label: 'Utama', icon: 'home', end: true },
     { to: '/admin/orders', label: 'Pesanan', icon: 'receipt' },
     { to: '/admin/stores', label: 'Warung', icon: 'store' },
     { to: '/admin/users', label: 'Warga', icon: 'users' },
@@ -48,7 +48,7 @@ export function BottomNav({ role }: { role: Role }) {
               end={item.end}
               className={({ isActive }) =>
                 [
-                  'flex min-h-16 flex-col items-center justify-center gap-0.5 text-sm font-medium',
+                  'flex min-h-16 flex-col items-center justify-center gap-0.5 text-base leading-tight font-medium tracking-tight',
                   isActive ? 'text-soga' : 'text-ink/75',
                 ].join(' ')
               }

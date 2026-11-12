@@ -1,4 +1,5 @@
 import { Button } from '../../components/Button'
+import { BatikStrip } from '../../components/BatikStrip'
 import { Card } from '../../components/Card'
 import { ErrorState } from '../../components/ErrorState'
 import { LinkButton } from '../../components/LinkButton'
@@ -54,15 +55,16 @@ export default function AdminDashboard() {
         <h1 className="text-2xl font-bold leading-tight">Ringkasan Hari Ini</h1>
         <p className="text-base text-ink/80">{drivers.length} kurir terdaftar. Angka dihitung dari pesanan yang masuk hari ini (WIB).</p>
       </Card>
+      <BatikStrip className="-mt-3 rounded-full" />
 
       <dl className="grid grid-cols-2 gap-3">
         {metrics.map((m) => (
-          <div key={m.label} className="rounded-2xl border border-line bg-white p-3">
+          <div key={m.label} className="card p-3">
             <dt className="text-base text-ink/80">{m.label}</dt>
             <dd className="text-2xl font-bold">{m.value}</dd>
           </div>
         ))}
-        <div className="col-span-2 rounded-2xl border border-line bg-white p-3">
+        <div className="col-span-2 card p-3">
           <dt className="text-base text-ink/80">Nilai pesanan selesai</dt>
           <dd className="text-2xl font-bold">{formatRupiah(completed.reduce((s, o) => s + o.total, 0))}</dd>
           <dd className="text-base text-ink/75">

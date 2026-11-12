@@ -15,7 +15,7 @@ type ProductCardProps = {
 
 export function ProductCard({ name, description, price, store, inCart = 0, onAdd }: ProductCardProps) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-line bg-white p-4">
+    <div className="card flex items-start gap-3">
       <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-line text-soga">
         <Icon name="bowl" />
       </span>
@@ -23,7 +23,7 @@ export function ProductCard({ name, description, price, store, inCart = 0, onAdd
         <p className="text-base font-bold">{name}</p>
         {description && <p className="text-base text-ink/80">{description}</p>}
         {store && (
-          <Link to={`/stores/${store.id}`} className="inline-flex min-h-12 items-center text-base font-semibold text-soga underline">
+          <Link to={`/stores/${store.id}`} className="link">
             {store.name}
           </Link>
         )}

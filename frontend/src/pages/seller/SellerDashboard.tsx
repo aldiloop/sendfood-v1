@@ -1,4 +1,5 @@
 import { Button } from '../../components/Button'
+import { BatikStrip } from '../../components/BatikStrip'
 import { Card } from '../../components/Card'
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorState } from '../../components/ErrorState'
@@ -78,6 +79,7 @@ export default function SellerDashboard() {
           </li>
         </ul>
       </Card>
+      <BatikStrip className="-mt-3 rounded-full" />
 
       <section className="space-y-3" aria-labelledby="hari-ini">
         <h2 id="hari-ini" className="text-xl font-bold">
@@ -85,12 +87,12 @@ export default function SellerDashboard() {
         </h2>
         <dl className="grid grid-cols-2 gap-3">
           {stats.map((s) => (
-            <div key={s.label} className="rounded-2xl border border-line bg-white p-3">
+            <div key={s.label} className="card p-3">
               <dt className="text-base text-ink/80">{s.label}</dt>
               <dd className="text-2xl font-bold">{s.value}</dd>
             </div>
           ))}
-          <div className="col-span-2 rounded-2xl border border-line bg-white p-3">
+          <div className="col-span-2 card p-3">
             <dt className="text-base text-ink/80">Nilai menu pesanan selesai</dt>
             <dd className="text-2xl font-bold">{formatRupiah(completedValue)}</dd>
             <dd className="text-base text-ink/75">Dibayar tunai ke kurir (COD), di luar ongkir.</dd>

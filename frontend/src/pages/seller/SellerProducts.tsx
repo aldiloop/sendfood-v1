@@ -198,7 +198,7 @@ function ProductForm({
           hint={price ? formatRupiah(Number(price)) : 'Contoh: 10000'}
         />
         <TextArea label="Deskripsi (boleh dikosongkan)" maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} />
-        <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border-2 border-line bg-white px-3">
+        <label className="choice">
           <input type="checkbox" className="size-6 accent-soga" checked={available} onChange={(e) => setAvailable(e.target.checked)} />
           <span className="text-base font-semibold">Tersedia (bisa dipesan)</span>
         </label>

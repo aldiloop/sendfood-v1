@@ -16,7 +16,7 @@ export function ConfirmBox({ title, children, confirmText, cancelText = 'Batal',
   const ref = useRef<HTMLHeadingElement>(null)
   useEffect(() => ref.current?.focus(), [])
   return (
-    <div role="alertdialog" aria-labelledby="confirm-title" className="space-y-3 rounded-2xl border-2 border-soga bg-white p-4">
+    <div role="alertdialog" aria-labelledby="confirm-title" className="card space-y-3 border-2 border-soga">
       <h2 id="confirm-title" ref={ref} tabIndex={-1} className="text-lg font-bold">
         {title}
       </h2>

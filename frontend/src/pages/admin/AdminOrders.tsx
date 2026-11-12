@@ -62,9 +62,7 @@ function AdminOrderList({ filter, onFilter }: { filter: Filter; onFilter: (f: Fi
               role="tab"
               aria-selected={filter === f.value}
               onClick={() => onFilter(f.value)}
-              className={`min-h-12 rounded-xl border-2 text-base font-semibold ${
-                filter === f.value ? 'border-soga bg-soga text-white' : 'border-line bg-white text-ink'
-              }`}
+              className="tab"
             >
               {f.label}
               {n ? ` (${n})` : ''}
@@ -136,7 +134,7 @@ function AdminOrderDetail({ orderId }: { orderId: string }) {
 
   return (
     <div className="space-y-5">
-      <Link to="/admin/orders" className="inline-flex min-h-12 items-center text-base font-semibold text-soga underline">
+      <Link to="/admin/orders" className="link">
         ← Semua pesanan
       </Link>
       <section className="space-y-2">
@@ -289,7 +287,7 @@ function AdminActions({ order, drivers, actor, onChanged }: { order: Order; driv
                   id="driver"
                   value={selected}
                   onChange={(e) => setPickedDriver(e.target.value)}
-                  className="min-h-12 w-full rounded-xl border-2 border-line bg-white px-4 text-base"
+                  className="input"
                 >
                   <option value="">Pilih...</option>
                   {otherDrivers.map((d) => (

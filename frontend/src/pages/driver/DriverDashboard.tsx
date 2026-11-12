@@ -1,4 +1,5 @@
 import { Button } from '../../components/Button'
+import { BatikStrip } from '../../components/BatikStrip'
 import { Card } from '../../components/Card'
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorState } from '../../components/ErrorState'
@@ -42,17 +43,18 @@ export default function DriverDashboard() {
         <h1 className="text-2xl font-bold leading-tight">{firstName ? `Halo, ${firstName}` : 'Ringkasan Kurir'}</h1>
         <p className="text-base text-ink/80">Ambil pesanan di warung, antar ke pembeli, lalu tagih tunai.</p>
       </Card>
+      <BatikStrip className="-mt-3 rounded-full" />
 
       <dl className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-line bg-white p-3">
+        <div className="card p-3">
           <dt className="text-base text-ink/80">Tugas aktif</dt>
           <dd className="text-2xl font-bold">{active.length}</dd>
         </div>
-        <div className="rounded-2xl border border-line bg-white p-3">
+        <div className="card p-3">
           <dt className="text-base text-ink/80">Selesai hari ini</dt>
           <dd className="text-2xl font-bold">{doneToday.length}</dd>
         </div>
-        <div className="col-span-2 rounded-2xl border border-line bg-white p-3">
+        <div className="col-span-2 card p-3">
           <dt className="text-base text-ink/80">Total tunai yang perlu ditagih</dt>
           <dd className="text-2xl font-bold">{formatRupiah(toCollect)}</dd>
           <dd className="text-base text-ink/75">Dari tugas yang masih berjalan, termasuk ongkir.</dd>

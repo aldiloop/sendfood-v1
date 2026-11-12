@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { BatikStrip } from '../components/BatikStrip'
 import { useNavigate } from 'react-router'
 import { Button } from '../components/Button'
 import { EmptyState } from '../components/EmptyState'
@@ -46,13 +47,15 @@ export default function Home() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Cari soto, pecel, warung..."
-            className="min-h-12 flex-1 rounded-xl border-2 border-line bg-white px-4 text-base focus:border-soga"
+            className="input min-w-0 flex-1"
           />
           <Button type="submit" aria-label="Cari">
             <Icon name="search" />
           </Button>
         </form>
       </section>
+
+      <BatikStrip className="rounded-full" />
 
       <section className="space-y-3" aria-labelledby="popular-title">
         <h2 id="popular-title" className="text-xl font-bold">
@@ -77,6 +80,8 @@ export default function Home() {
           />
         ))}
       </section>
+
+      <BatikStrip className="rounded-full" />
 
       <section className="space-y-3" aria-labelledby="stores-title">
         <h2 id="stores-title" className="text-xl font-bold">

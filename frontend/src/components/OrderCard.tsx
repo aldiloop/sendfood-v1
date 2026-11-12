@@ -6,7 +6,7 @@ import { OrderStatusBadge } from './OrderStatusBadge'
 export function OrderCard({ order, to }: { order: Order; to: string }) {
   const count = order.items.reduce((n, i) => n + i.quantity, 0)
   return (
-    <Link to={to} className="block rounded-2xl border border-line bg-white p-4 hover:border-soga">
+    <Link to={to} className="card-link">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-base font-bold">{order.store_name}</p>

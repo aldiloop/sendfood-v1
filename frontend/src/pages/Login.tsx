@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { BatikStrip } from '../components/BatikStrip'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../components/Button'
 import { Card } from '../components/Card'
@@ -67,6 +68,7 @@ export default function Login() {
 
   return (
     <section className="space-y-5">
+      <BatikStrip className="rounded-full" />
       <div>
         <h1 className="text-2xl font-bold leading-tight">Masuk</h1>
         <p className="mt-1 text-base text-ink/80">

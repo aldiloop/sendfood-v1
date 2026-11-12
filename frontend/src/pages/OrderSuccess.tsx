@@ -1,4 +1,5 @@
 import { useLocation, useParams } from 'react-router'
+import { BatikStrip } from '../components/BatikStrip'
 import { Button } from '../components/Button'
 import { Card } from '../components/Card'
 import { EmptyState } from '../components/EmptyState'
@@ -42,6 +43,7 @@ export default function OrderSuccess() {
 
   return (
     <div className="space-y-5">
+      <BatikStrip className="rounded-full" />
       <section className="space-y-2 text-center">
         <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-leaf text-white">
           <Icon name="check" size={32} />

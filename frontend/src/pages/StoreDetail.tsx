@@ -80,7 +80,7 @@ export default function StoreDetail() {
           {store.phone && (
             <li className="flex gap-2">
               <Icon name="phone" size={20} className="mt-0.5 shrink-0 text-terra" />
-              <a href={`tel:${store.phone.replace(/[^\d+]/g, '')}`} className="font-semibold text-soga underline">
+              <a href={`tel:${store.phone.replace(/[^\d+]/g, '')}`} className="link">
                 {store.phone}
               </a>
             </li>

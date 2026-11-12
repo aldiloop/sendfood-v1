@@ -131,9 +131,7 @@ export default function Search() {
             role="tab"
             aria-selected={tab === t}
             onClick={() => update({ tab: t === 'menu' ? null : t, sort: null, min: null, max: null })}
-            className={`min-h-12 rounded-xl border-2 text-base font-semibold ${
-              tab === t ? 'border-soga bg-soga text-white' : 'border-line bg-white text-ink'
-            }`}
+            className="tab"
           >
             {t === 'menu' ? 'Menu' : 'Warung'}
           </button>
@@ -166,7 +164,7 @@ export default function Search() {
           id="sort"
           value={sort}
           onChange={(e) => update({ sort: e.target.value === 'name' ? null : e.target.value })}
-          className="min-h-12 w-full rounded-xl border-2 border-line bg-white px-4 text-base"
+          className="input"
         >
           {sortOptions.map((o) => (
             <option key={o.value} value={o.value}>
