@@ -197,8 +197,18 @@ admin. Bahasa antarmuka: Bahasa Indonesia sehari-hari.
     - Wajib: "Confirm email" tetap aktif untuk pendaftaran email, pastikan
       versi Supabase Auth di staging/produksi sudah berisi perbaikan, dan
       hapus akun yang lama tidak dikonfirmasi.
-  - R10.7.8 PERTANYAAN TERBUKA (belum diputuskan pemilik): di halaman Daftar,
-    apakah pendaftaran tetap hanya untuk pelanggan, atau menawarkan pilihan
-    peran (pelanggan / penjual / kurir, dengan persetujuan admin untuk
-    penjual dan kurir)? Apa pun keputusannya, peran admin TIDAK PERNAH bisa
-    dipilih saat mendaftar.
+  - R10.7.8 Pilihan peran saat mendaftar — DIPUTUSKAN pemilik (12 Nov 2026,
+    17:45 WIB; sebelumnya pertanyaan terbuka). Desain, BELUM dibangun.
+    - Halaman Daftar menawarkan tiga pilihan peran: Pelanggan, Penjual,
+      Kurir.
+    - Pelanggan langsung aktif.
+    - Pendaftar yang memilih Penjual atau Kurir berstatus MENUNGGU
+      PERSETUJUAN ADMIN. Sebelum admin menyetujui, mereka tidak bisa
+      berjualan atau mengantar.
+    - Admin TIDAK PERNAH bisa dipilih saat mendaftar. Peran admin hanya
+      berasal dari server.
+    - Pilihan peran dari aplikasi hanya berupa permintaan. Server yang
+      menetapkan peran dan menegakkan status menunggu persetujuan; pendaftar
+      yang belum disetujui tidak boleh mendapat hak penjual/kurir di RPC/RLS.
+    - Detail teknis (cara menyimpan permintaan peran, layar persetujuan
+      admin, dan perlakuan pendaftar lewat Google) dirancang saat dibangun.
