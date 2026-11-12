@@ -4,7 +4,7 @@ const rawUrl = (import.meta.env.VITE_SUPABASE_URL ?? '').trim()
 const rawKey = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim()
 
 /** Nilai contoh dari .env.example — dianggap belum diisi. */
-const PLACEHOLDER_HINTS = ['your-project', 'your-anon-key', 'xxxx', 'example', 'changeme']
+const PLACEHOLDER_HINTS = ['your-project', 'your-anon-key', 'your-key', 'xxxx', 'example', 'changeme']
 
 function looksLikePlaceholder(value: string): boolean {
   const v = value.toLowerCase()
