@@ -10,6 +10,7 @@ npm run dev        # server pengembangan
 npm run build      # tsc + vite build (+ service worker PWA)
 npm run lint       # oxlint
 npm run smoke      # cek semua rute HTTP 200 (jalankan setelah build)
+npm run test:delivery  # 23 kasus rumus ongkir (2.350 m = Rp4.800)
 ```
 
 Tanpa `.env`, aplikasi berjalan dalam **Mode demo (data contoh)**.
