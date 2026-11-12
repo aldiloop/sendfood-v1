@@ -44,3 +44,14 @@ export function formatHours(hours: OpeningHours | null): string {
   if (!hours || toMinutes(hours.open) === null || toMinutes(hours.close) === null) return 'Jam buka belum diatur'
   return `${hours.open.replace(':', '.')}–${hours.close.replace(':', '.')} WIB`
 }
+
+/** Awal hari ini (00.00 WIB) sebagai Date. */
+export function startOfTodayWib(now: Date = new Date()): Date {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now) // "2026-11-12"
+  return new Date(`${parts}T00:00:00+07:00`)
+}

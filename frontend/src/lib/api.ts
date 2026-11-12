@@ -15,9 +15,11 @@ import type {
   Page,
   PaymentMethod,
   PaymentStatus,
+  Product,
   ProductListItem,
   ProductSort,
   Profile,
+  Store,
   StoreListItem,
   StoreSort,
 } from './types'
@@ -1281,4 +1283,276 @@ export async function getMyOrder(orderId: string): Promise<Order | null> {
     if (!res.hasMore) return null
   }
   return null
+}
+
+/* ------------------------------------------------------------------ */
+/* Penjual: warung sendiri + menu (R4.2, R4.4)                         */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Tidak ada RPC khusus penjual, jadi warung & menu milik sendiri dibaca/ditulis
+ * langsung ke tabel. Server membatasi lewat RLS (owner_id = auth.uid(), peran seller),
+ * hak kolom (hanya nama/deskripsi/alamat/telepon/jam/foto; menu: nama/harga/deskripsi/
+ * is_available), dan trigger guard_store_update (radius, ongkir, status aktif, pemilik
+ * tidak bisa diubah penjual; titik lokasi terkunci selama warung aktif).
+ * Tidak ada kolom stok: ketersediaan hanya is_available ("Tersedia").
+ */
+
+export type MyStore = Store
+
+export type StoreProfileInput = {
+  name: string
+  description: string | null
+  address: string
+  phone: string | null
+}
+
+export type ProductInput = {
+  name: string
+  description: string | null
+  price: number
+  is_available: boolean
+}
+
+export const PRODUCT_PRICE_MAX = 10_000_000
+
+Object.assign(ERROR_MESSAGES, {
+  seller_role_required: 'Hanya akun penjual yang bisa mengubah warung dan menu.',
+  store_not_found_for_seller: 'Akun ini belum punya warung. Hubungi admin.',
+  store_name_invalid: 'Nama warung wajib diisi (maksimal 160 huruf).',
+  store_address_invalid: 'Alamat warung wajib diisi (maksimal 1.000 huruf).',
+  store_description_too_long: 'Deskripsi warung maksimal 1.000 huruf.',
+  store_phone_invalid: 'Nomor telepon hanya angka, contoh 0812-3456-7890.',
+  store_operational_field_forbidden: 'Radius, ongkir, dan status aktif hanya bisa diubah admin.',
+  store_location_locked: 'Titik lokasi warung aktif dikunci. Hubungi admin untuk memindahkannya.',
+  product_name_invalid: 'Nama menu wajib diisi (maksimal 160 huruf).',
+  product_description_too_long: 'Deskripsi menu maksimal 500 huruf.',
+  product_price_invalid: 'Harga wajib angka bulat, Rp1 sampai Rp10.000.000.',
+  product_not_found: 'Menu tidak ditemukan.',
+} satisfies Record<string, string>)
+
+export function validateStoreProfile(input: StoreProfileInput): string | null {
+  const name = input.name.trim()
+  const address = input.address.trim()
+  if (name.length < 1 || name.length > 160) return 'store_name_invalid'
+  if (address.length < 1 || address.length > 1000) return 'store_address_invalid'
+  if ((input.description?.trim().length ?? 0) > 1000) return 'store_description_too_long'
+  const phone = input.phone?.trim() ?? ''
+  if (phone && !/^[0-9+\-\s]{6,40}$/.test(phone)) return 'store_phone_invalid'
+  return null
+}
+
+export function validateProduct(input: ProductInput): string | null {
+  const name = input.name.trim()
+  if (name.length < 1 || name.length > 160) return 'product_name_invalid'
+  if ((input.description?.trim().length ?? 0) > 500) return 'product_description_too_long'
+  if (!Number.isInteger(input.price) || input.price < 1 || input.price > PRODUCT_PRICE_MAX) return 'product_price_invalid'
+  return null
+}
+
+const normStore = (i: StoreProfileInput) => ({
+  name: i.name.trim(),
+  description: i.description?.trim() || null,
+  address: i.address.trim(),
+  phone: i.phone?.trim() || null,
+})
+
+const normProduct = (i: ProductInput) => ({
+  name: i.name.trim(),
+  description: i.description?.trim() || null,
+  price: i.price,
+  is_available: i.is_available,
+})
+
+export type SellerApi = {
+  /** Warung milik penjual yang masuk; null bila belum punya. */
+  getMyStore(): Promise<MyStore | null>
+  updateMyStore(input: StoreProfileInput): Promise<MyStore>
+  /** Semua menu warung sendiri, termasuk yang tidak tersedia. */
+  listMyProducts(): Promise<Product[]>
+  addProduct(input: ProductInput): Promise<Product>
+  updateProduct(id: string, input: ProductInput): Promise<Product>
+}
+
+const STORE_COLS = 'id, owner_id, name, description, address, latitude, longitude, phone, image_url, opening_hours, is_active, service_radius_km'
+const PRODUCT_COLS = 'id, store_id, name, description, price, image_url, is_available'
+
+function mapStore(r: Row): MyStore {
+  return {
+    id: String(r.id),
+    owner_id: String(r.owner_id),
+    name: String(r.name),
+    description: strOrNull(r.description),
+    address: String(r.address),
+    latitude: numOrNull(r.latitude),
+    longitude: numOrNull(r.longitude),
+    phone: strOrNull(r.phone),
+    image_url: strOrNull(r.image_url),
+    opening_hours: parseOpeningHours(r.opening_hours),
+    is_active: Boolean(r.is_active),
+    service_radius_km: numOrNull(r.service_radius_km),
+  }
+}
+
+function mapProduct(r: Row): Product {
+  return {
+    id: String(r.id),
+    store_id: String(r.store_id),
+    name: String(r.name),
+    description: strOrNull(r.description),
+    price: num(r.price),
+    image_url: strOrNull(r.image_url),
+    is_available: Boolean(r.is_available),
+  }
+}
+
+function tableError(error: { code?: string; message?: string }): ApiError {
+  if (error.code === '42501') return new ApiError('seller_role_required')
+  return toApiError(error)
+}
+
+async function liveUserId(): Promise<string> {
+  if (!supabase) throw new ApiError('unknown')
+  const { data } = await supabase.auth.getUser()
+  if (!data.user) throw new ApiError('authentication_required')
+  return data.user.id
+}
+
+const liveSeller: SellerApi = {
+  async getMyStore() {
+    if (!supabase) throw new ApiError('unknown')
+    if (liveSessionRole !== 'seller') throw new ApiError('seller_role_required')
+    const uid = await liveUserId()
+    const { data, error } = await supabase.from('stores').select(STORE_COLS).eq('owner_id', uid).order('created_at').limit(1)
+    if (error) throw tableError(error)
+    const r = rows(data)[0]
+    return r ? mapStore(r) : null
+  },
+
+  async updateMyStore(input) {
+    if (!supabase) throw new ApiError('unknown')
+    const problem = validateStoreProfile(input)
+    if (problem) throw new ApiError(problem)
+    const store = await liveSeller.getMyStore()
+    if (!store) throw new ApiError('store_not_found_for_seller')
+    // Hanya kolom profil: kolom operasional tidak pernah dikirim.
+    const { data, error } = await supabase.from('stores').update(normStore(input)).eq('id', store.id).select(STORE_COLS).single()
+    if (error) throw tableError(error)
+    return mapStore(data as Row)
+  },
+
+  async listMyProducts() {
+    if (!supabase) throw new ApiError('unknown')
+    const store = await liveSeller.getMyStore()
+    if (!store) throw new ApiError('store_not_found_for_seller')
+    const { data, error } = await supabase.from('products').select(PRODUCT_COLS).eq('store_id', store.id).order('name')
+    if (error) throw tableError(error)
+    return rows(data).map(mapProduct)
+  },
+
+  async addProduct(input) {
+    if (!supabase) throw new ApiError('unknown')
+    const problem = validateProduct(input)
+    if (problem) throw new ApiError(problem)
+    const store = await liveSeller.getMyStore()
+    if (!store) throw new ApiError('store_not_found_for_seller')
+    const { data, error } = await supabase
+      .from('products')
+      .insert({ ...normProduct(input), store_id: store.id })
+      .select(PRODUCT_COLS)
+      .single()
+    if (error) throw tableError(error)
+    return mapProduct(data as Row)
+  },
+
+  async updateProduct(id, input) {
+    if (!supabase) throw new ApiError('unknown')
+    const problem = validateProduct(input)
+    if (problem) throw new ApiError(problem)
+    const { data, error } = await supabase.from('products').update(normProduct(input)).eq('id', id).select(PRODUCT_COLS)
+    if (error) throw tableError(error)
+    const r = rows(data)[0]
+    // RLS menyaring baris milik warung lain: 0 baris = bukan milik penjual ini.
+    if (!r) throw new ApiError('product_not_found')
+    return mapProduct(r)
+  },
+}
+
+function demoSellerStore(): { db: DemoStore; store: Store } {
+  const { actor } = demoActor()
+  if (actor.role !== 'seller') throw new ApiError('seller_role_required')
+  const db = loadDemo()
+  const store = db.stores.find((s) => s.owner_id === actor.userId)
+  if (!store) throw new ApiError('store_not_found_for_seller')
+  return { db, store }
+}
+
+const demoSeller: SellerApi = {
+  async getMyStore() {
+    await delay()
+    const { actor } = demoActor()
+    if (actor.role !== 'seller') throw new ApiError('seller_role_required')
+    const store = loadDemo().stores.find((s) => s.owner_id === actor.userId)
+    return store ? structuredClone(store) : null
+  },
+
+  async updateMyStore(input) {
+    await delay()
+    const problem = validateStoreProfile(input)
+    if (problem) throw new ApiError(problem)
+    const { db, store } = demoSellerStore()
+    Object.assign(store, normStore(input))
+    // Nama warung tersalin di pesanan (seperti store_name dari server).
+    for (const o of db.orders) if (o.store_id === store.id) o.store_name = store.name
+    saveDemo()
+    return structuredClone(store)
+  },
+
+  async listMyProducts() {
+    await delay()
+    const { db, store } = demoSellerStore()
+    return structuredClone(db.products.filter((p) => p.store_id === store.id).sort((a, b) => a.name.localeCompare(b.name)))
+  },
+
+  async addProduct(input) {
+    await delay()
+    const problem = validateProduct(input)
+    if (problem) throw new ApiError(problem)
+    const { db, store } = demoSellerStore()
+    const product: Product = { id: `prd-${randomHex(6)}`, store_id: store.id, image_url: null, ...normProduct(input) }
+    db.products.push(product)
+    saveDemo()
+    return structuredClone(product)
+  },
+
+  async updateProduct(id, input) {
+    await delay()
+    const problem = validateProduct(input)
+    if (problem) throw new ApiError(problem)
+    const { db, store } = demoSellerStore()
+    const product = db.products.find((p) => p.id === id && p.store_id === store.id)
+    if (!product) throw new ApiError('product_not_found')
+    Object.assign(product, normProduct(input))
+    saveDemo()
+    return structuredClone(product)
+  },
+}
+
+export const seller: SellerApi = isMockMode ? demoSeller : liveSeller
+
+/**
+ * Semua pesanan yang terlihat oleh pengguna ini sejak `since` (untuk ringkasan hari ini).
+ * list_my_orders urut terbaru dulu, jadi berhenti begitu ketemu pesanan yang lebih lama.
+ */
+export async function listMyOrdersSince(since: Date): Promise<Order[]> {
+  const out: Order[] = []
+  for (let page = 0; page < LOOKUP_MAX_PAGES; page++) {
+    const res = await api.listMyOrders({ limit: LOOKUP_PAGE, offset: page * LOOKUP_PAGE })
+    for (const o of res.items) {
+      if (new Date(o.created_at) < since) return out
+      if (!out.some((x) => x.order_id === o.order_id)) out.push(o)
+    }
+    if (!res.hasMore) return out
+  }
+  return out
 }
