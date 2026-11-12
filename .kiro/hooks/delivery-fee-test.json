@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Uji rumus ongkir setelah delivery.ts berubah",
+      "description": "Menjalankan 23 kasus uji ongkir (wajib: 2.350 m = Rp4.800) setiap kali lib/delivery.ts disimpan, supaya rumus frontend tetap sama dengan delivery_fee_for_distance di backend.",
+      "trigger": "PostFileSave",
+      "matcher": "frontend/src/lib/delivery\\.ts$",
+      "action": { "type": "command", "command": "cd frontend && npm run test:delivery --silent" },
+      "timeout": 60
+    }
+  ]
+}

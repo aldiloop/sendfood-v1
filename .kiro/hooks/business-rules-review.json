@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Tinjau aturan bisnis R7",
+      "description": "Setiap kali file aturan pesanan, adapter API, atau ongkir diubah agen, minta agen memeriksa ulang aturan bisnis wajib di requirements.md R7.",
+      "trigger": "PostFileSave",
+      "matcher": "frontend/src/lib/(orderRules|api|delivery|format)\\.ts$",
+      "action": {
+        "type": "agent",
+        "prompt": "File aturan bisnis Send Food baru saja diubah. Periksa perubahan terhadap .kiro/specs/sendfood-mvp-v1/requirements.md R7 dan laporkan pelanggaran sebelum melanjutkan: (1) checkout tidak pernah mengirim ongkir/harga, ongkir dihitung server dari jarak; (2) create_order selalu mengirim p_idempotency_key lewat placeOrder(), satu kunci per percobaan; (3) batal per aktor: pelanggan hanya dari pending_seller, penjual dari pending_seller/accepted/preparing, admin dari status yang belum final, semuanya wajib alasan; (4) selesai hanya oleh kurir bertugas, override admin hanya dari delivered dengan alasan wajib; (5) penugasan kurir hanya lewat RPC assign_order_driver oleh admin; (6) hanya COD, status bayar tampil apa adanya, tidak pernah 'lunas'; (7) frontend tidak pernah memakai service_role/secret key."
+      }
+    }
+  ]
+}

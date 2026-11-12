@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Lint frontend setelah file disimpan",
+      "description": "Menjalankan oxlint setiap kali agen menyimpan file TS/TSX di frontend/src. Target proyek: 0 error, 0 peringatan.",
+      "trigger": "PostFileSave",
+      "matcher": "frontend/src/.*\\.(ts|tsx)$",
+      "action": { "type": "command", "command": "cd frontend && npm run lint --silent" },
+      "timeout": 120
+    }
+  ]
+}

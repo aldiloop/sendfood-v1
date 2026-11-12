@@ -1,0 +1,125 @@
+@import 'tailwindcss';
+
+/*
+ * Tema Batik Sogan Solo — warna solid, tanpa gradient, tanpa glassmorphism.
+ * Kontras (WCAG): ink di cream 13,88 · putih di soga 9,28 · terra di cream 4,70.
+ * gold (#B9975B) kontras 2,62: HANYA untuk garis/dekorasi (BatikStrip), JANGAN untuk teks.
+ */
+@theme {
+  --color-cream: #fff9ee;
+  --color-ink: #3a2415;
+  --color-soga: #6b3a2a;
+  --color-terra: #a85c3b;
+  --color-gold: #b9975b;
+  --color-leaf: #2f6b3a;
+  --color-line: #e8dcc6;
+
+  /* Skala Soga (aksi utama). 600 = Soga. */
+  --color-primary-50: #f8efea;
+  --color-primary-100: #efddd3;
+  --color-primary-200: #ddb9a6;
+  --color-primary-300: #c48f76;
+  --color-primary-400: #a2644a;
+  --color-primary-500: #874a34;
+  --color-primary-600: #6b3a2a;
+  --color-primary-700: #592f22;
+  --color-primary-800: #46251b;
+  --color-primary-900: #3a2415;
+
+  /* Skala Terracotta (aksen). 500 = Terracotta. */
+  --color-accent-50: #fbf1ec;
+  --color-accent-100: #f4dccf;
+  --color-accent-200: #e8b79e;
+  --color-accent-300: #d58f6d;
+  --color-accent-400: #c2734f;
+  --color-accent-500: #a85c3b;
+  --color-accent-600: #8e4c30;
+  --color-accent-700: #733d27;
+  --color-accent-800: #5a301f;
+  --color-accent-900: #432418;
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+}
+
+@layer base {
+  html {
+    /* Teks isi minimal 16px. */
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-terra);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Kelas komponen. Dipakai di semua layar supaya tampilan seragam.
+ * Utilitas Tailwind tetap boleh menimpa (mis. `card p-3`, `btn-primary w-full`).
+ */
+@layer components {
+  /* Tombol: tinggi minimal 48px, teks 16px. */
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost {
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold;
+    @apply disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply bg-soga text-white hover:bg-ink disabled:bg-primary-300;
+  }
+  .btn-secondary {
+    @apply border-2 border-soga bg-cream text-soga hover:bg-primary-50 disabled:opacity-60;
+  }
+  .btn-ghost {
+    @apply text-soga underline-offset-4 hover:underline disabled:opacity-60;
+  }
+
+  .card {
+    @apply rounded-2xl border border-line bg-white p-4;
+  }
+  /* Kartu yang bisa ditekan (Link). */
+  .card-link {
+    @apply block rounded-2xl border border-line bg-white p-4 hover:border-soga;
+  }
+
+  .input {
+    @apply block min-h-12 w-full rounded-xl border-2 border-line bg-white px-4 py-3 text-base text-ink;
+    @apply placeholder:text-ink/55 focus:border-soga;
+  }
+  .input[aria-invalid='true'] {
+    @apply border-terra;
+  }
+
+  .badge {
+    @apply inline-flex shrink-0 items-center rounded-full border px-3 py-0.5 text-base font-semibold whitespace-nowrap;
+  }
+
+  /* Tab pilihan (role="tab"); tab terpilih memakai aria-selected. */
+  .tab {
+    @apply min-h-12 rounded-xl border-2 border-line bg-white px-1 text-base font-semibold text-ink;
+  }
+  .tab[aria-selected='true'] {
+    @apply border-soga bg-soga text-white;
+  }
+
+  /* Pilihan radio/centang berbentuk kartu; terpilih = garis Soga. */
+  .choice {
+    @apply flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border-2 border-line bg-white p-3 has-checked:border-soga;
+  }
+
+  /* Tautan teks (tetap 48px area sentuh). */
+  .link {
+    @apply inline-flex min-h-12 items-center gap-2 font-semibold text-soga underline;
+  }
+}
