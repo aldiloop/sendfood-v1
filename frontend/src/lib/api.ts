@@ -1,7 +1,7 @@
 import { estimateDeliveryFee, haversineMeters, roundCoord } from './delivery'
-import { createSeed, type DemoData } from './mock'
+import { createSeed, DEMO_ACCOUNTS, type DemoData } from './mock'
 import { checkStatusChange, checkStatusChangeByRole, ASSIGNABLE_STATUSES, type Actor } from './orderRules'
-import type { Role } from './roles'
+import { ALL_ROLES, type Role } from './roles'
 import { isMockMode, supabase } from './supabase'
 import type {
   CreateOrderInput,
@@ -10,6 +10,8 @@ import type {
   Order,
   OrderItem,
   OrderStatus,
+  OrderStatusHistory,
+  CustomerAddress,
   Page,
   PaymentMethod,
   PaymentStatus,
@@ -58,6 +60,26 @@ const ERROR_MESSAGES: Record<string, string> = {
   order_not_assignable: 'Kurir hanya bisa ditugaskan sebelum pesanan diambil.',
   invalid_pagination: 'Permintaan halaman tidak valid.',
   invalid_price_range: 'Rentang harga tidak valid.',
+  cancel_too_late:
+    'Pesanan ini sudah tidak bisa dibatalkan karena statusnya baru saja berubah. Muat ulang untuk melihat status terbaru, lalu hubungi warung bila perlu.',
+  // Akun
+  invalid_credentials: 'Email atau kata sandi salah.',
+  email_not_confirmed: 'Email belum dikonfirmasi. Buka tautan yang kami kirim ke emailmu.',
+  user_already_exists: 'Email ini sudah terdaftar. Silakan masuk.',
+  weak_password: 'Kata sandi terlalu lemah. Pakai minimal 8 huruf/angka.',
+  rate_limited: 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.',
+  signup_disabled: 'Pendaftaran sedang ditutup.',
+  profile_unavailable: 'Data akun tidak bisa dibaca. Coba masuk lagi.',
+  demo_only: 'Fitur ini hanya ada di mode demo.',
+  live_only: 'Di mode demo, pakai akun contoh di halaman Masuk.',
+  // Alamat
+  address_customer_only: 'Hanya akun pelanggan yang bisa menyimpan alamat.',
+  address_limit_reached: 'Alamat tersimpan sudah 10. Hapus salah satu dulu.',
+  address_label_invalid: 'Nama alamat wajib diisi (maksimal 60 huruf).',
+  address_text_invalid: 'Alamat wajib diisi (maksimal 1.500 huruf).',
+  address_note_too_long: 'Patokan terlalu panjang (maksimal 1.000 huruf).',
+  address_coordinates_invalid: 'Titik lokasi tidak valid.',
+  address_not_found: 'Alamat tidak ditemukan.',
   network: 'Koneksi bermasalah. Periksa internet lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi.',
 }
@@ -142,6 +164,20 @@ export type Api = {
   changeOrderStatus(orderId: string, newStatus: OrderStatus, note?: string | null): Promise<OrderStatus>
   /** Hanya admin. */
   assignOrderDriver(orderId: string, driverId: string): Promise<string>
+  /** Riwayat status satu pesanan (termasuk alasan batal/tolak), urut lama → baru. */
+  listOrderHistory(orderId: string): Promise<OrderStatusHistory[]>
+}
+
+/**
+ * Pembatalan yang ditolak karena status sudah berubah (mis. penjual menerima lebih dulu)
+ * diberi pesan khusus, supaya pengguna tahu alasannya TIDAK tercatat dan harus
+ * menghubungi warung/admin, bukan sekadar "tidak bisa diubah".
+ */
+function explainCancelFailure(err: unknown, newStatus: OrderStatus): unknown {
+  if (newStatus === 'cancelled' && err instanceof ApiError && err.code === 'status_transition_not_allowed') {
+    return new ApiError('cancel_too_late')
+  }
+  return err
 }
 
 const DEFAULT_LIMIT = 20
@@ -361,17 +397,43 @@ const liveApi: Api = {
     // Pertahanan di sisi klien; backend belum mewajibkan alasan untuk override admin "selesai".
     const problem = checkStatusChangeByRole(liveSessionRole, newStatus, trimmed)
     if (problem) throw new ApiError(problem)
-    const data = await rpc('change_order_status', {
-      p_order_id: orderId,
-      p_new_status: newStatus,
-      p_note: trimmed,
-    })
-    return data as OrderStatus
+    try {
+      const data = await rpc('change_order_status', {
+        p_order_id: orderId,
+        p_new_status: newStatus,
+        p_note: trimmed,
+      })
+      return data as OrderStatus
+    } catch (err) {
+      throw explainCancelFailure(err, newStatus)
+    }
   },
 
   async assignOrderDriver(orderId, driverId) {
     const data = await rpc('assign_order_driver', { p_order_id: orderId, p_driver_id: driverId })
     return String(data)
+  },
+
+  async listOrderHistory(orderId) {
+    if (!supabase) throw new ApiError('unknown')
+    // Tabel dibaca langsung: RLS order_status_history_participant_read hanya
+    // mengizinkan pelanggan, penjual, kurir bertugas, dan admin pesanan ini.
+    const { data, error } = await supabase
+      .from('order_status_history')
+      .select('order_id, old_status, new_status, changed_by, note, created_at')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: true })
+    if (error) throw toApiError(error)
+    return rows(data).map(
+      (r): OrderStatusHistory => ({
+        order_id: String(r.order_id),
+        old_status: (r.old_status as OrderStatus | null) ?? null,
+        new_status: r.new_status as OrderStatus,
+        changed_by: strOrNull(r.changed_by),
+        note: strOrNull(r.note),
+        created_at: String(r.created_at),
+      }),
+    )
   },
 }
 
@@ -419,6 +481,7 @@ function saveDemo(): void {
 export function resetDemoData(): void {
   demoCache = { ...createSeed(), idempotency: {} }
   saveDemo()
+  notifyDemo()
 }
 
 export function getDemoUserId(): string | null {
@@ -709,7 +772,7 @@ const demoApi: Api = {
     if (!order) throw new ApiError('order_not_found')
     const ownerId = db.stores.find((s) => s.id === order.store_id)?.owner_id ?? ''
     const problem = checkStatusChange({ ...order, store_owner_id: ownerId }, actor, newStatus, note)
-    if (problem) throw new ApiError(problem)
+    if (problem) throw explainCancelFailure(new ApiError(problem), newStatus)
 
     const old = order.order_status
     order.order_status = newStatus
@@ -750,6 +813,25 @@ const demoApi: Api = {
     })
     saveDemo()
     return driverId
+  },
+
+  async listOrderHistory(orderId) {
+    await delay()
+    const { actor } = demoActor()
+    const db = loadDemo()
+    const order = db.orders.find((o) => o.order_id === orderId)
+    const ownerId = order ? db.stores.find((s) => s.id === order.store_id)?.owner_id : undefined
+    // Sama dengan RLS participant_read: pelanggan, pemilik warung, kurir bertugas, admin.
+    const visible =
+      order &&
+      (actor.role === 'admin' ||
+        order.customer_id === actor.userId ||
+        order.driver_id === actor.userId ||
+        ownerId === actor.userId)
+    if (!visible) return []
+    return structuredClone(
+      db.history.filter((h) => h.order_id === orderId).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    )
   },
 }
 
@@ -850,4 +932,320 @@ export function placeOrder(input: PlaceOrderInput): Promise<CreateOrderResult> {
     })
   inflight.set(key, promise)
   return promise
+}
+
+/* ------------------------------------------------------------------ */
+/* Akun: masuk/daftar, profil, alamat tersimpan (R2.1–R2.4)            */
+/* ------------------------------------------------------------------ */
+
+export type SignUpInput = {
+  fullName: string
+  phone?: string
+  email: string
+  password: string
+}
+
+export type SignUpResult = {
+  /** null bila server meminta konfirmasi email dulu. */
+  profile: Profile | null
+  needsEmailConfirm: boolean
+}
+
+export type AddressInput = {
+  label: string
+  address: string
+  latitude: number | null
+  longitude: number | null
+  note?: string | null
+}
+
+export type AccountApi = {
+  mode: 'live' | 'demo'
+  /** Pengguna yang sedang masuk. Peran live SELALU dari tabel profiles di server. */
+  getCurrentUser(): Promise<Profile | null>
+  /** Dipanggil saat status masuk berubah (tab ini atau tab lain). Mengembalikan fungsi berhenti. */
+  onChange(callback: () => void): () => void
+  signIn(email: string, password: string): Promise<Profile>
+  signUp(input: SignUpInput): Promise<SignUpResult>
+  signOut(): Promise<void>
+  /** Hanya mode demo: masuk sebagai akun contoh. Mode live menolak. */
+  demoSignIn(role: Role): Promise<Profile>
+  listAddresses(): Promise<CustomerAddress[]>
+  addAddress(input: AddressInput): Promise<CustomerAddress>
+  deleteAddress(id: string): Promise<void>
+}
+
+export const MIN_PASSWORD_LENGTH = 8
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** Batas yang sama dengan constraint tabel customer_addresses. */
+export function validateAddress(input: AddressInput): string | null {
+  const label = input.label.trim()
+  const address = input.address.trim()
+  const note = input.note?.trim() ?? ''
+  if (label.length < 1 || label.length > 60) return 'address_label_invalid'
+  if (address.length < 1 || address.length > 1500) return 'address_text_invalid'
+  if (note.length > 1000) return 'address_note_too_long'
+  const { latitude: lat, longitude: lng } = input
+  if ((lat === null) !== (lng === null)) return 'address_coordinates_invalid'
+  if (lat !== null && lng !== null) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      return 'address_coordinates_invalid'
+    }
+  }
+  return null
+}
+
+function normalizeAddress(input: AddressInput) {
+  return {
+    label: input.label.trim(),
+    address: input.address.trim(),
+    latitude: input.latitude === null ? null : roundCoord(input.latitude),
+    longitude: input.longitude === null ? null : roundCoord(input.longitude),
+    note: input.note?.trim() || null,
+  }
+}
+
+/** Galat Supabase Auth → kode galat aplikasi. */
+function toAuthError(error: { code?: string; message?: string; status?: number } | null): ApiError {
+  const code = error?.code ?? ''
+  const msg = error?.message ?? ''
+  if (code === 'invalid_credentials' || /invalid login credentials/i.test(msg)) return new ApiError('invalid_credentials')
+  if (code === 'email_not_confirmed') return new ApiError('email_not_confirmed')
+  if (code === 'user_already_exists' || code === 'email_exists') return new ApiError('user_already_exists')
+  if (code === 'weak_password') return new ApiError('weak_password')
+  if (code.startsWith('over_') || error?.status === 429) return new ApiError('rate_limited')
+  if (code === 'signup_disabled') return new ApiError('signup_disabled')
+  if (/fetch|network/i.test(msg)) return new ApiError('network')
+  return new ApiError('unknown')
+}
+
+/** Dipanggil saat keluar akun: lupakan data sesi yang tersimpan di HP. */
+function forgetSessionData(): void {
+  setSessionRole(null)
+  clearCheckoutAttempt()
+}
+
+const liveAccount: AccountApi = {
+  mode: 'live',
+
+  async getCurrentUser() {
+    if (!supabase) return null
+    // getUser() memvalidasi token ke server (bukan sekadar membaca token lokal).
+    const { data, error } = await supabase.auth.getUser()
+    if (error || !data.user) {
+      setSessionRole(null)
+      return null
+    }
+    const { data: row, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, full_name, phone, role')
+      .eq('id', data.user.id)
+      .maybeSingle()
+    if (profileError || !row || !ALL_ROLES.includes(row.role as Role)) {
+      // Gagal-tertutup: tanpa profil dari server, tidak ada peran.
+      setSessionRole(null)
+      throw new ApiError('profile_unavailable')
+    }
+    const profile: Profile = {
+      id: String(row.id),
+      full_name: String(row.full_name ?? ''),
+      phone: strOrNull(row.phone),
+      role: row.role as Role,
+      email: data.user.email ?? undefined,
+    }
+    setSessionRole(profile.role)
+    return profile
+  },
+
+  onChange(callback) {
+    if (!supabase) return () => {}
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      // Jangan memanggil Supabase langsung di dalam callback ini (bisa macet); tunda sebentar.
+      setTimeout(callback, 0)
+    })
+    return () => data.subscription.unsubscribe()
+  },
+
+  async signIn(email, password) {
+    if (!supabase) throw new ApiError('unknown')
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    if (error) throw toAuthError(error)
+    const profile = await liveAccount.getCurrentUser()
+    if (!profile) throw new ApiError('profile_unavailable')
+    return profile
+  },
+
+  async signUp(input) {
+    if (!supabase) throw new ApiError('unknown')
+    // Peran TIDAK dikirim: trigger handle_new_auth_user selalu membuat profil 'customer'.
+    const { data, error } = await supabase.auth.signUp({
+      email: input.email.trim(),
+      password: input.password,
+      options: {
+        data: { full_name: input.fullName.trim(), phone: input.phone?.trim() || null },
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
+    })
+    if (error) throw toAuthError(error)
+    // Bila konfirmasi email aktif, Supabase mengembalikan user tanpa identitas untuk email yang sudah ada.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      throw new ApiError('user_already_exists')
+    }
+    if (!data.session) return { profile: null, needsEmailConfirm: true }
+    return { profile: await liveAccount.getCurrentUser(), needsEmailConfirm: false }
+  },
+
+  async signOut() {
+    forgetSessionData()
+    if (supabase) await supabase.auth.signOut()
+  },
+
+  async demoSignIn() {
+    throw new ApiError('demo_only')
+  },
+
+  async listAddresses() {
+    if (!supabase) throw new ApiError('unknown')
+    const { data, error } = await supabase
+      .from('customer_addresses')
+      .select('id, customer_id, label, address, latitude, longitude, note')
+      .order('created_at', { ascending: true })
+    if (error) throw toApiError(error)
+    return rows(data).map(mapAddressRow)
+  },
+
+  async addAddress(input) {
+    if (!supabase) throw new ApiError('unknown')
+    const problem = validateAddress(input)
+    if (problem) throw new ApiError(problem)
+    if (liveSessionRole !== 'customer') throw new ApiError('address_customer_only')
+    // customer_id diisi server (default auth.uid()); kolom ini memang tidak boleh dikirim.
+    const { data, error } = await supabase
+      .from('customer_addresses')
+      .insert(normalizeAddress(input))
+      .select('id, customer_id, label, address, latitude, longitude, note')
+      .single()
+    if (error) {
+      if (error.code === '42501') throw new ApiError('address_customer_only')
+      throw toApiError(error)
+    }
+    return mapAddressRow(data as Row)
+  },
+
+  async deleteAddress(id) {
+    if (!supabase) throw new ApiError('unknown')
+    const { data, error } = await supabase.from('customer_addresses').delete().eq('id', id).select('id')
+    if (error) throw toApiError(error)
+    if (rows(data).length === 0) throw new ApiError('address_not_found')
+  },
+}
+
+function mapAddressRow(r: Row): CustomerAddress {
+  return {
+    id: String(r.id),
+    customer_id: String(r.customer_id),
+    label: String(r.label),
+    address: String(r.address),
+    latitude: numOrNull(r.latitude),
+    longitude: numOrNull(r.longitude),
+    note: strOrNull(r.note),
+  }
+}
+
+const demoListeners = new Set<() => void>()
+const notifyDemo = () => demoListeners.forEach((cb) => cb())
+
+const demoAccount: AccountApi = {
+  mode: 'demo',
+
+  async getCurrentUser() {
+    const id = getDemoUserId()
+    const profile = id ? loadDemo().profiles.find((p) => p.id === id) : undefined
+    return profile ? structuredClone(profile) : null
+  },
+
+  onChange(callback) {
+    demoListeners.add(callback)
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === DEMO_USER_KEY || e.key === DEMO_DATA_KEY || e.key === null) {
+        demoCache = null // tab lain mengubah data: baca ulang
+        callback()
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => {
+      demoListeners.delete(callback)
+      window.removeEventListener('storage', onStorage)
+    }
+  },
+
+  async signIn() {
+    throw new ApiError('live_only')
+  },
+
+  async signUp() {
+    throw new ApiError('live_only')
+  },
+
+  async signOut() {
+    forgetSessionData()
+    setDemoUserId(null)
+    notifyDemo()
+  },
+
+  async demoSignIn(role) {
+    await delay()
+    const id = DEMO_ACCOUNTS[role]
+    const profile = loadDemo().profiles.find((p) => p.id === id)
+    if (!profile) throw new ApiError('unknown')
+    // Ganti akun = ganti orang: jangan bawa percobaan checkout akun sebelumnya.
+    clearCheckoutAttempt()
+    setDemoUserId(id)
+    notifyDemo()
+    return structuredClone(profile)
+  },
+
+  async listAddresses() {
+    await delay()
+    const { actor } = demoActor()
+    return structuredClone(loadDemo().addresses.filter((a) => a.customer_id === actor.userId))
+  },
+
+  async addAddress(input) {
+    await delay()
+    const { actor } = demoActor()
+    const problem = validateAddress(input)
+    if (problem) throw new ApiError(problem)
+    if (actor.role !== 'customer') throw new ApiError('address_customer_only')
+    const db = loadDemo()
+    if (db.addresses.filter((a) => a.customer_id === actor.userId).length >= 10) {
+      throw new ApiError('address_limit_reached')
+    }
+    const address: CustomerAddress = {
+      id: `addr-${randomHex(6)}`,
+      customer_id: actor.userId,
+      ...normalizeAddress(input),
+    }
+    db.addresses.push(address)
+    saveDemo()
+    return structuredClone(address)
+  },
+
+  async deleteAddress(id) {
+    await delay()
+    const { actor } = demoActor()
+    const db = loadDemo()
+    const index = db.addresses.findIndex((a) => a.id === id && a.customer_id === actor.userId)
+    if (index < 0) throw new ApiError('address_not_found')
+    db.addresses.splice(index, 1)
+    saveDemo()
+  },
+}
+
+/** Adapter akun aktif (pasangan `api`). */
+export const account: AccountApi = isMockMode ? demoAccount : liveAccount
+
+export function isValidEmail(email: string): boolean {
+  return EMAIL_RE.test(email.trim())
 }

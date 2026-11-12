@@ -16,7 +16,7 @@ frontend/
                   #   EmptyState, ErrorState, Loading, Icon, BatikStrip
     context/      # AuthContext, CartContext
     lib/          # api.ts, delivery.ts, format.ts, mock.ts, supabase.ts
-    pages/        # 22 halaman (lihat tasks.md)
+    pages/        # 23 halaman + 404 (lihat tasks.md)
 ```
 
 ## Adapter data (`lib/api.ts`)
@@ -114,6 +114,7 @@ hasil fungsi ini sebagai "perkiraan" dan TIDAK mengirimkannya ke server.
 
 - `npm run build` harus lolos (tsc + vite build).
 - `npm run lint` 0 error.
-- Smoke test: vite preview + curl 23 entri rute (22 rute + 404),
+- Smoke test (`npm run smoke`): vite preview, 24 entri rute (23 rute + 404)
+  dan 6 aset PWA,
   semua HTTP 200.
 - Uji rumus ongkir: 23 kasus, termasuk 2.350 m = Rp4.800.

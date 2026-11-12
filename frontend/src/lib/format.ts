@@ -1,4 +1,4 @@
-import type { OrderStatus, PaymentMethod, PaymentStatus } from './types'
+import type { OrderStatus, OrderStatusHistory, PaymentMethod, PaymentStatus } from './types'
 
 export { formatDistance } from './delivery'
 
@@ -78,4 +78,52 @@ export function formatTime(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '-'
   return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+}
+
+/* ------------------------------------------------------------------ */
+/* Riwayat status → timeline                                           */
+/* ------------------------------------------------------------------ */
+
+export type TimelineEntry = {
+  at: string
+  label: string
+  /** Alasan/catatan yang ditulis pengguna. Null untuk catatan sistem. */
+  reason: string | null
+}
+
+/** Baris penugasan kurir: status tidak berubah, catatan berisi kode sistem (memuat ID). */
+function isSystemRow(h: OrderStatusHistory): boolean {
+  return h.old_status === h.new_status && /^driver_(re)?assigned:/.test(h.note ?? '')
+}
+
+/**
+ * Timeline untuk ditampilkan. Catatan sistem (driver_assigned:<uuid>) tidak pernah
+ * ditampilkan mentah; diganti label "Kurir ditugaskan"/"Kurir diganti".
+ */
+export function buildTimeline(history: readonly OrderStatusHistory[]): TimelineEntry[] {
+  return [...history]
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((h) => {
+      if (isSystemRow(h)) {
+        return {
+          at: h.created_at,
+          label: h.note?.startsWith('driver_reassigned:') ? 'Kurir diganti' : 'Kurir ditugaskan',
+          reason: null,
+        }
+      }
+      return { at: h.created_at, label: ORDER_STATUS_LABEL[h.new_status] ?? h.new_status, reason: h.note?.trim() || null }
+    })
+}
+
+/**
+ * Alasan batal/tolak pesanan. Dicari dari baris yang MEMINDAHKAN pesanan ke status itu,
+ * bukan dari "catatan terakhir", supaya baris lain sesudahnya (mis. catatan sistem)
+ * tidak bisa menutupi alasan yang ditulis pelanggan/penjual/admin.
+ */
+export function closingReason(history: readonly OrderStatusHistory[], status: OrderStatus): string | null {
+  if (status !== 'cancelled' && status !== 'rejected') return null
+  const row = [...history]
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .find((h) => h.new_status === status && h.old_status !== status)
+  return row?.note?.trim() || null
 }

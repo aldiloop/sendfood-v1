@@ -1,5 +1,9 @@
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { AppLayout } from './components/AppLayout'
+import { RoleGuard } from './components/RoleGuard'
+import { AuthProvider } from './context/AuthContext'
+import { CartProvider } from './context/CartContext'
+import { ALL_ROLES } from './lib/roles'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import Home from './pages/Home'
@@ -27,49 +31,61 @@ import SellerStoreProfile from './pages/seller/SellerStoreProfile'
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<AppLayout />}>
-          {/* Umum + pelanggan */}
-          <Route index element={<Home />} />
-          <Route path="search" element={<Search />} />
-          <Route path="stores/:storeId" element={<StoreDetail />} />
-          <Route path="cart" element={<Cart />} />
-          <Route path="checkout" element={<Checkout />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="orders/:orderId" element={<OrderDetail />} />
-          <Route path="orders/:orderId/success" element={<OrderSuccess />} />
-          <Route path="login" element={<Login />} />
-          <Route path="register" element={<Register />} />
-          <Route path="profile" element={<Profile />} />
+    <AuthProvider>
+      <CartProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<AppLayout />}>
+              {/* Umum: boleh tanpa masuk */}
+              <Route index element={<Home />} />
+              <Route path="search" element={<Search />} />
+              <Route path="stores/:storeId" element={<StoreDetail />} />
+              <Route path="cart" element={<Cart />} />
+              <Route path="login" element={<Login />} />
+              <Route path="register" element={<Register />} />
 
-          {/* Penjual (RoleGuard ditambahkan di Task 3) */}
-          <Route path="seller">
-            <Route index element={<SellerDashboard />} />
-            <Route path="products" element={<SellerProducts />} />
-            <Route path="orders" element={<SellerOrders />} />
-            <Route path="store" element={<SellerStoreProfile />} />
-          </Route>
+              {/* Semua peran yang sudah masuk */}
+              <Route element={<RoleGuard allow={ALL_ROLES} />}>
+                <Route path="profile" element={<Profile />} />
+              </Route>
 
-          {/* Kurir */}
-          <Route path="driver">
-            <Route index element={<DriverDashboard />} />
-            <Route path="tasks" element={<DriverTasks />} />
-            <Route path="tasks/:orderId" element={<DriverTaskDetail />} />
-            <Route path="history" element={<DriverHistory />} />
-          </Route>
+              {/* Pelanggan */}
+              <Route element={<RoleGuard allow={['customer']} />}>
+                <Route path="checkout" element={<Checkout />} />
+                <Route path="orders" element={<Orders />} />
+                <Route path="orders/:orderId" element={<OrderDetail />} />
+                <Route path="orders/:orderId/success" element={<OrderSuccess />} />
+              </Route>
 
-          {/* Admin */}
-          <Route path="admin">
-            <Route index element={<AdminDashboard />} />
-            <Route path="orders" element={<AdminOrders />} />
-            <Route path="stores" element={<AdminStores />} />
-            <Route path="users" element={<AdminUsers />} />
-          </Route>
+              {/* Penjual */}
+              <Route path="seller" element={<RoleGuard allow={['seller']} />}>
+                <Route index element={<SellerDashboard />} />
+                <Route path="products" element={<SellerProducts />} />
+                <Route path="orders" element={<SellerOrders />} />
+                <Route path="store" element={<SellerStoreProfile />} />
+              </Route>
 
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+              {/* Kurir */}
+              <Route path="driver" element={<RoleGuard allow={['driver']} />}>
+                <Route index element={<DriverDashboard />} />
+                <Route path="tasks" element={<DriverTasks />} />
+                <Route path="tasks/:orderId" element={<DriverTaskDetail />} />
+                <Route path="history" element={<DriverHistory />} />
+              </Route>
+
+              {/* Admin */}
+              <Route path="admin" element={<RoleGuard allow={['admin']} />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="stores" element={<AdminStores />} />
+                <Route path="users" element={<AdminUsers />} />
+              </Route>
+
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </CartProvider>
+    </AuthProvider>
   )
 }

@@ -15,10 +15,14 @@ export const ROLE_HOME: Record<Role, string> = {
   admin: '/admin',
 }
 
-/** Peran pemilik area rute. Rute pelanggan/umum mengembalikan null. */
-export function areaRole(pathname: string): Exclude<Role, 'customer'> | null {
-  if (pathname === '/seller' || pathname.startsWith('/seller/')) return 'seller'
-  if (pathname === '/driver' || pathname.startsWith('/driver/')) return 'driver'
-  if (pathname === '/admin' || pathname.startsWith('/admin/')) return 'admin'
-  return null
+export const ALL_ROLES: readonly Role[] = ['customer', 'seller', 'driver', 'admin']
+
+/**
+ * Tujuan setelah masuk (?next=). Hanya jalur internal aplikasi, supaya tautan
+ * seperti /login?next=//situs-lain tidak bisa membawa pengguna keluar (open redirect).
+ */
+export function safeNextPath(next: string | null): string | null {
+  if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return null
+  if (/^\/(login|register)(\/|\?|#|$)/.test(next)) return null
+  return next
 }

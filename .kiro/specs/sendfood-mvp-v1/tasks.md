@@ -80,7 +80,8 @@ yang dilanggar.
 
 - [ ] 9. Verifikasi akhir
   - [ ] 9.1 `npm run build` lolos; `npm run lint` 0 error.
-  - [ ] 9.2 Smoke test 23/23 rute HTTP 200 (vite preview).
+  - [ ] 9.2 Smoke test 24/24 rute HTTP 200 (23 rute + 404, vite preview)
+    + 6/6 aset PWA.
   - [ ] 9.3 Uji klik mode demo: pesan → bayar COD → terima → siapkan
     → tugaskan → antar → selesai; batal per aktor.
   - [ ] 9.4 Cek akhir: tanpa transfer manual, tanpa UI rating,

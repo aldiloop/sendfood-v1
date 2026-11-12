@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from 'react-router'
-import { areaRole } from '../lib/roles'
+import { useAuth } from '../context/auth'
 import { BottomNav } from './BottomNav'
 import { Header } from './Header'
 
@@ -8,9 +8,10 @@ const NO_NAV = ['/login', '/register']
 
 export function AppLayout() {
   const { pathname } = useLocation()
+  const { user } = useAuth()
   const showNav = !NO_NAV.includes(pathname)
-  // Sementara peran menu diambil dari area rute; Task 3 menggantinya dengan peran login.
-  const navRole = areaRole(pathname) ?? 'customer'
+  // Menu mengikuti peran akun yang masuk; tamu melihat menu pelanggan.
+  const navRole = user?.role ?? 'customer'
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col bg-cream">
