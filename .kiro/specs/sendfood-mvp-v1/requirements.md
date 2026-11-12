@@ -96,7 +96,8 @@ admin. Bahasa antarmuka: Bahasa Indonesia sehari-hari.
   mana pun yang belum selesai. Alasan batal wajib di semua form.
 - R7.5: Pesanan selesai HANYA oleh kurir bertugas; admin boleh override
   HANYA dari `delivered` dengan alasan wajib. Frontend menegakkan ini
-  lebih ketat dari backend (backend belum mewajibkan alasan override).
+  di frontend dan, sejak migrasi 20261112000002, juga di backend
+  (`completion_reason_required`; batal dari status akhir ditolak server).
 - R7.6: Pembayaran HANYA COD. Transfer manual tertutup — jangan
   tampilkan sebagai opsi. Tanpa UI rating.
 - R7.7: Status bayar tampil apa adanya (Belum Dibayar / Menunggu

@@ -1,13 +1,13 @@
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorState } from '../../components/ErrorState'
-import { TextArea } from '../../components/Input'
 import { Loading } from '../../components/Loading'
 import { OrderCard } from '../../components/OrderCard'
 import { OrderStatusBadge } from '../../components/OrderStatusBadge'
+import { ReasonForm } from '../../components/ReasonForm'
 import { StatusTimeline } from '../../components/StatusTimeline'
 import { useAuth } from '../../context/auth'
 import { api, errorMessage, getMyOrder } from '../../lib/api'
@@ -301,53 +301,5 @@ function SellerActions({ order, actor, onChanged }: { order: Order; actor: Actor
         />
       )}
     </section>
-  )
-}
-
-const REASON_MAX = 500
-
-function ReasonForm(props: {
-  title: string
-  label: string
-  placeholder: string
-  confirmText: string
-  busy: boolean
-  onCancel: () => void
-  onSubmit: (reason: string) => void
-}) {
-  const [reason, setReason] = useState('')
-  const [fieldError, setFieldError] = useState<string | null>(null)
-
-  function submit(e: FormEvent) {
-    e.preventDefault()
-    const text = reason.trim()
-    if (!text) return setFieldError('Alasan wajib diisi.')
-    if (text.length > REASON_MAX) return setFieldError(`Alasan maksimal ${REASON_MAX} huruf.`)
-    setFieldError(null)
-    props.onSubmit(text)
-  }
-
-  return (
-    <Card>
-      <form onSubmit={submit} noValidate className="space-y-3">
-        <h2 className="text-lg font-bold">{props.title}</h2>
-        <TextArea
-          label={props.label}
-          maxLength={REASON_MAX}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          error={fieldError}
-          placeholder={props.placeholder}
-        />
-        <div className="flex gap-3">
-          <Button variant="secondary" className="flex-1" onClick={props.onCancel} disabled={props.busy}>
-            Kembali
-          </Button>
-          <Button type="submit" className="flex-1" loading={props.busy} loadingText="Menyimpan...">
-            {props.confirmText}
-          </Button>
-        </div>
-      </form>
-    </Card>
   )
 }

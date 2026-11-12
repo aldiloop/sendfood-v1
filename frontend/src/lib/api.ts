@@ -176,7 +176,11 @@ export type Api = {
  * menghubungi warung/admin, bukan sekadar "tidak bisa diubah".
  */
 function explainCancelFailure(err: unknown, newStatus: OrderStatus): unknown {
-  if (newStatus === 'cancelled' && err instanceof ApiError && err.code === 'status_transition_not_allowed') {
+  if (
+    newStatus === 'cancelled' &&
+    err instanceof ApiError &&
+    (err.code === 'status_transition_not_allowed' || err.code === 'cancel_from_terminal_status_not_allowed')
+  ) {
     return new ApiError('cancel_too_late')
   }
   return err
@@ -396,7 +400,7 @@ const liveApi: Api = {
 
   async changeOrderStatus(orderId, newStatus, note) {
     const trimmed = note?.trim() || null
-    // Pertahanan di sisi klien; backend belum mewajibkan alasan untuk override admin "selesai".
+    // Pengecekan klien sebelum RPC; server juga mewajibkan alasan (completion_reason_required).
     const problem = checkStatusChangeByRole(liveSessionRole, newStatus, trimmed)
     if (problem) throw new ApiError(problem)
     try {
@@ -1556,3 +1560,114 @@ export async function listMyOrdersSince(since: Date): Promise<Order[]> {
   }
   return out
 }
+
+/* ------------------------------------------------------------------ */
+/* Admin: direktori, warung, kurir (R6.2, R6.4)                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Pesanan semua warung: list_my_orders (admin melihat semua).
+ * Penugasan kurir: HANYA RPC assign_order_driver (server memeriksa peran admin dan
+ * bahwa target berprofil driver). Status: change_order_status (server mewajibkan alasan
+ * override "selesai" dan menolak batal dari status akhir sejak migrasi 20261112000002).
+ * Profil & warung dibaca langsung (RLS: admin boleh membaca semua). Aktif/nonaktif warung
+ * lewat RPC admin_set_store_active (tercatat di admin_audit_log).
+ * Peran pengguna TIDAK bisa diubah dari frontend (provision_set_user_role khusus server).
+ */
+
+export type DirectoryUser = Profile & { created_at: string | null }
+
+Object.assign(ERROR_MESSAGES, {
+  completion_reason_required: 'Tulis alasan untuk menandai pesanan selesai.',
+  cancel_from_terminal_status_not_allowed: 'Pesanan yang sudah selesai, dibatalkan, atau ditolak tidak bisa dibatalkan.',
+  store_not_found: 'Warung tidak ditemukan.',
+} satisfies Record<string, string>)
+
+export type AdminApi = {
+  listUsers(): Promise<DirectoryUser[]>
+  listDrivers(): Promise<DirectoryUser[]>
+  listAllStores(): Promise<MyStore[]>
+  setStoreActive(storeId: string, active: boolean): Promise<boolean>
+}
+
+const PROFILE_COLS = 'id, full_name, phone, role, created_at'
+const DIRECTORY_LIMIT = 500
+
+function mapDirectoryUser(r: Row): DirectoryUser {
+  return {
+    id: String(r.id),
+    full_name: String(r.full_name ?? ''),
+    phone: strOrNull(r.phone),
+    role: ALL_ROLES.includes(r.role as Role) ? (r.role as Role) : 'customer',
+    created_at: strOrNull(r.created_at),
+  }
+}
+
+function assertAdminLive(): void {
+  if (liveSessionRole !== 'admin') throw new ApiError('admin_role_required')
+}
+
+const liveAdmin: AdminApi = {
+  async listUsers() {
+    if (!supabase) throw new ApiError('unknown')
+    assertAdminLive()
+    const { data, error } = await supabase.from('profiles').select(PROFILE_COLS).order('created_at').limit(DIRECTORY_LIMIT)
+    if (error) throw toApiError(error)
+    return rows(data).map(mapDirectoryUser)
+  },
+
+  async listDrivers() {
+    if (!supabase) throw new ApiError('unknown')
+    assertAdminLive()
+    const { data, error } = await supabase.from('profiles').select(PROFILE_COLS).eq('role', 'driver').order('full_name')
+    if (error) throw toApiError(error)
+    return rows(data).map(mapDirectoryUser)
+  },
+
+  async listAllStores() {
+    if (!supabase) throw new ApiError('unknown')
+    assertAdminLive()
+    const { data, error } = await supabase.from('stores').select(STORE_COLS).order('name').limit(DIRECTORY_LIMIT)
+    if (error) throw toApiError(error)
+    return rows(data).map(mapStore)
+  },
+
+  async setStoreActive(storeId, active) {
+    assertAdminLive()
+    return Boolean(await rpc('admin_set_store_active', { p_store_id: storeId, p_active: active }))
+  },
+}
+
+function demoAdminDb(): DemoStore {
+  const { actor } = demoActor()
+  if (actor.role !== 'admin') throw new ApiError('admin_role_required')
+  return loadDemo()
+}
+
+const demoAdmin: AdminApi = {
+  async listUsers() {
+    await delay()
+    return demoAdminDb().profiles.map((p) => ({ ...structuredClone(p), created_at: null }))
+  },
+  async listDrivers() {
+    await delay()
+    return demoAdminDb()
+      .profiles.filter((p) => p.role === 'driver')
+      .map((p) => ({ ...structuredClone(p), created_at: null }))
+  },
+  async listAllStores() {
+    await delay()
+    return structuredClone(demoAdminDb().stores).sort((a, b) => a.name.localeCompare(b.name, 'id'))
+  },
+  async setStoreActive(storeId, active) {
+    await delay()
+    const db = demoAdminDb()
+    const store = db.stores.find((s) => s.id === storeId)
+    if (!store) throw new ApiError('store_not_found')
+    store.is_active = active
+    saveDemo()
+    return active
+  },
+}
+
+export const admin: AdminApi = isMockMode ? demoAdmin : liveAdmin
