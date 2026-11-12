@@ -38,6 +38,13 @@ export function paymentStatusLabel(status: PaymentStatus): string {
 }
 
 /**
+ * Penjelas status bayar COD. Pencatatan uang COD di backend masih mati, jadi status
+ * tetap "Belum Dibayar" walau pesanan selesai; kalimat ini mencegah salah paham.
+ * Wajib tampil di layar pesanan berhasil dan detail pesanan.
+ */
+export const COD_PAYMENT_NOTE = 'Bayar tunai ke kurir saat pesanan diterima.'
+
+/**
  * Label metode bayar untuk MENAMPILKAN data. Bukan daftar pilihan:
  * checkout hanya punya COD.
  */

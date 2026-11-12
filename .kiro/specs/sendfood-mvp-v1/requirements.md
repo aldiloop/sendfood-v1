@@ -30,7 +30,9 @@ admin. Bahasa antarmuka: Bahasa Indonesia sehari-hari.
 - R3.1: Beranda menampilkan hero sambutan, pencarian warung/menu,
   Makanan Populer, dan Daftar Warung Aktif (nama, alamat, jam, badge
   Buka/Tutup, ongkir mulai Rp2.000, radius).
-- R3.2: Pencarian bisa memfilter dan mengurutkan hasil.
+- R3.2: Pencarian bisa memfilter dan mengurutkan hasil (nama, terdekat,
+  terjauh, termurah, termahal). TIDAK ada urutan "ongkir": RPC
+  mengurutkannya dengan tarif lama tersimpan yang sudah tidak dipakai.
 - R3.3: Detail warung menampilkan menu; pelanggan bisa menambah item ke
   keranjang.
 - R3.4: Keranjang tersimpan di localStorage dan tetap ada setelah
@@ -41,8 +43,10 @@ admin. Bahasa antarmuka: Bahasa Indonesia sehari-hari.
 - R3.6: Checkout TIDAK mengirim ongkir ke server — ongkir ditetapkan
   server saat order dibuat.
 - R3.7: Setelah pesan dibuat, tampil layar sukses berisi kode pesanan,
-  metode COD, status bayar, dan total.
+  metode COD, status bayar, dan total, ditambah kalimat penjelas
+  "Bayar tunai ke kurir saat pesanan diterima."
 - R3.8: Daftar pesanan dan detail pesanan menampilkan timeline status.
+  Detail pesanan juga menampilkan kalimat penjelas COD di atas.
 - R3.9: Pelanggan bisa membatalkan pesanan HANYA dari status
   `pending_seller`, dengan alasan wajib.
 
@@ -50,10 +54,13 @@ admin. Bahasa antarmuka: Bahasa Indonesia sehari-hari.
 
 - R4.1: Dashboard menampilkan ringkasan pesanan hari ini dan info warung
   (ongkir mulai Rp2.000, radius).
-- R4.2: Penjual bisa tambah dan edit produk (nama, harga, stok,
-  ketersediaan).
-- R4.3: Penjual bisa menerima dan menolak pesanan, serta mengubah status
-  pesanan sampai `preparing`.
+- R4.2: Penjual bisa tambah dan edit produk (nama, harga, deskripsi,
+  dan toggle "Tersedia"). Backend tidak punya kolom stok (hanya
+  `is_available`), jadi TIDAK ada field jumlah stok dan frontend tidak
+  boleh membuat stok palsu.
+- R4.3: Penjual bisa menerima dan menolak pesanan (tolak wajib alasan),
+  serta mengubah status pesanan sampai `ready_for_pickup`
+  (Diterima → Disiapkan → Siap Diambil), sesuai backend.
 - R4.4: Profil warung bisa diedit (nama, deskripsi, alamat, telepon).
 - R4.5: Kartu "Konfigurasi Pengantaran" bersifat read-only dan
   menampilkan ongkir otomatis dari jarak (bukan tarif tersimpan),
@@ -72,8 +79,9 @@ admin. Bahasa antarmuka: Bahasa Indonesia sehari-hari.
 - R6.2: Admin melihat semua pesanan, bisa membatalkan dari status mana
   pun yang belum selesai (alasan wajib), dan menugaskan driver
   (hanya admin yang bisa menugaskan).
-- R6.3: Admin bisa menandai pesanan selesai sebagai override, dengan
-  alasan wajib.
+- R6.3: Admin bisa menandai pesanan selesai sebagai override HANYA dari
+  status `delivered` (Sudah Sampai), dengan alasan wajib. Admin tidak
+  menjalankan tahap penjual/kurir (terima, siapkan, ambil, sampai).
 - R6.4: Admin melihat direktori warga dan daftar warung.
 
 ## 7. Aturan bisnis (wajib sama persis dengan backend)
@@ -87,16 +95,27 @@ admin. Bahasa antarmuka: Bahasa Indonesia sehari-hari.
   toko dari `pending_seller`/`accepted`/`preparing`; admin dari status
   mana pun yang belum selesai. Alasan batal wajib di semua form.
 - R7.5: Pesanan selesai HANYA oleh kurir bertugas; admin boleh override
-  dengan alasan wajib.
+  HANYA dari `delivered` dengan alasan wajib. Frontend menegakkan ini
+  lebih ketat dari backend (backend belum mewajibkan alasan override).
 - R7.6: Pembayaran HANYA COD. Transfer manual tertutup — jangan
   tampilkan sebagai opsi. Tanpa UI rating.
 - R7.7: Status bayar tampil apa adanya (Belum Dibayar / Menunggu
   Verifikasi / Terverifikasi / Gagal) — jangan pernah diklaim "lunas"
-  bila statusnya bukan Terverifikasi.
+  bila statusnya bukan Terverifikasi. Pencatatan uang COD di backend
+  masih mati, jadi pesanan selesai tetap "Belum Dibayar"; tampilkan
+  penjelas "Bayar tunai ke kurir saat pesanan diterima."
 - R7.8: `create_order` selalu mengirim `p_idempotency_key` agar klik
-  ganda tidak membuat pesanan duplikat.
-- R7.9: Alur status pesanan: pending → diterima → disiapkan → siap
-  diambil → ditugaskan → diantar → selesai (atau dibatalkan).
+  ganda tidak membuat pesanan duplikat. Kunci dibuat SEKALI per
+  percobaan checkout (disimpan bersama sidik keranjang) dan dipakai
+  ulang saat coba lagi; diganti hanya bila isi keranjang berubah atau
+  setelah berhasil. Checkout memakai `placeOrder()` di `lib/api.ts`.
+- R7.9: Alur status pesanan (enum backend): `pending_seller` (Menunggu
+  Penjual) → `accepted` (Diterima) → `preparing` (Disiapkan) →
+  `ready_for_pickup` (Siap Diambil; tampil "Ditugaskan" bila sudah ada
+  kurir) → `picked_up` (Diantar) → `delivered` (Sudah Sampai) →
+  `completed` (Selesai). Jalur akhir lain: `rejected` (Ditolak Penjual,
+  dari `pending_seller`) dan `cancelled` (Dibatalkan). Penugasan kurir
+  mengisi `driver_id`, bukan status tersendiri.
 
 ## 8. Desain
 

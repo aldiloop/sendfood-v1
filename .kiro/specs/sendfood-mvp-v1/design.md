@@ -51,13 +51,38 @@ hasil fungsi ini sebagai "perkiraan" dan TIDAK mengirimkannya ke server.
 
 ## Status
 
-- Pesanan: `pending_seller` (Menunggu Penjual), `accepted` (Diterima),
-  `preparing` (Disiapkan), `ready_for_pickup` (Siap Diambil),
-  `assigned` (Ditugaskan), `on_delivery` (Diantar),
-  `completed` (Selesai), `cancelled` (Dibatalkan).
+- Pesanan (enum backend `order_status`): `pending_seller` (Menunggu
+  Penjual), `accepted` (Diterima), `rejected` (Ditolak Penjual),
+  `preparing` (Disiapkan), `ready_for_pickup` (Siap Diambil; tampil
+  "Ditugaskan" bila `driver_id` sudah terisi), `picked_up` (Diantar),
+  `delivered` (Sudah Sampai), `completed` (Selesai),
+  `cancelled` (Dibatalkan). Tidak ada status `assigned`/`on_delivery`:
+  penugasan kurir = `assign_order_driver` mengisi `driver_id`.
 - Bayar: Belum Dibayar / Menunggu Verifikasi / Terverifikasi / Gagal.
-- Aturan batal dan selesai per aktor: lihat requirements R7.4–R7.5.
-  Semua form batal dan semua override admin wajib meminta alasan.
+  Pencatatan COD masih mati, jadi pesanan selesai tetap "Belum
+  Dibayar"; layar sukses dan detail pesanan menampilkan
+  `COD_PAYMENT_NOTE` ("Bayar tunai ke kurir saat pesanan diterima.").
+- Aturan per aktor ada di `lib/orderRules.ts` (cermin backend, dengan
+  sengaja lebih ketat untuk admin):
+  - Penjual: terima/tolak (tolak wajib alasan) → disiapkan → siap
+    diambil; batal dari `pending_seller`/`accepted`/`preparing`.
+  - Kurir bertugas: diantar → sudah sampai → selesai.
+  - Admin: tugaskan kurir (`accepted`/`preparing`/`ready_for_pickup`),
+    batal dari status mana pun yang belum final, override selesai
+    HANYA dari `delivered` dengan alasan wajib. Admin tidak menjalankan
+    tahap penjual/kurir.
+  - Pelanggan: batal hanya dari `pending_seller`.
+  Semua form batal/tolak dan semua override admin wajib meminta alasan.
+  Adapter live juga mengecek alasan sebelum memanggil RPC
+  (`checkStatusChangeByRole`).
+- Idempotency checkout: `placeOrder()` di `lib/api.ts` memakai satu
+  kunci per percobaan (sidik keranjang = warung + menu + jumlah,
+  disimpan di localStorage), mengembalikan promise yang sama untuk klik
+  ganda, dan menghapus kunci setelah berhasil.
+- Urutan katalog: `name`, `nearest`, `farthest` (+ `cheapest`,
+  `priciest` untuk menu). `delivery_fee` tidak ditawarkan.
+- Keamanan env: plugin Vite menghentikan build bila variabel `VITE_*`
+  berisi service_role/secret key (variabel `VITE_*` masuk bundle publik).
 
 ## Desain visual — Batik Sogan Solo
 

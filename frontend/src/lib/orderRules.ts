@@ -69,7 +69,10 @@ export function allowedNextStatuses(order: OrderRef, actor: Actor): OrderStatus[
     if (next === 'picked_up' && !order.driver_id) return false
     switch (actor.role) {
       case 'admin':
-        return true
+        // Sengaja lebih ketat dari backend: admin TIDAK menjalankan tahap penjual/kurir.
+        // Satu-satunya langkah maju admin adalah override "selesai" dari 'delivered' (R6.3),
+        // jadi "selesai hanya dari Sudah Sampai" tidak bisa diakali dengan maju bertahap.
+        return s === 'delivered' && next === 'completed'
       case 'seller':
         return (
           order.store_owner_id === actor.userId &&
@@ -111,5 +114,25 @@ export function checkStatusChange(
   if (next === 'picked_up' && !order.driver_id) return 'driver_not_assigned'
   if (!allowedNextStatuses(order, actor).includes(next)) return 'status_transition_not_allowed'
   if (reasonRequired(next, actor) && !hasNote) return 'override_reason_required'
+  return null
+}
+
+/**
+ * Pengecekan yang cukup tahu PERAN (tanpa data pesanan) untuk adapter live,
+ * sebelum memanggil change_order_status. Server tetap memeriksa sisanya.
+ * `role` null = peran belum diketahui → gagal-tertutup: "selesai" wajib alasan.
+ */
+export function checkStatusChangeByRole(
+  role: Role | null,
+  next: OrderStatus,
+  note: string | null | undefined,
+): string | null {
+  const hasNote = Boolean(note && note.trim())
+  if (note && note.length > 500) return 'status_note_too_long'
+  if (next === 'cancelled') return hasNote ? null : 'cancellation_reason_required'
+  if (next === 'rejected') return hasNote ? null : 'rejection_reason_required'
+  if (role === 'customer') return 'status_transition_not_allowed'
+  if (role === 'admin' && next !== 'completed') return 'status_transition_not_allowed'
+  if (next === 'completed' && role !== 'driver' && !hasNote) return 'override_reason_required'
   return null
 }

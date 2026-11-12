@@ -1,6 +1,7 @@
 import { estimateDeliveryFee, haversineMeters, roundCoord } from './delivery'
 import { createSeed, type DemoData } from './mock'
-import { checkStatusChange, ASSIGNABLE_STATUSES, type Actor } from './orderRules'
+import { checkStatusChange, checkStatusChangeByRole, ASSIGNABLE_STATUSES, type Actor } from './orderRules'
+import type { Role } from './roles'
 import { isMockMode, supabase } from './supabase'
 import type {
   CreateOrderInput,
@@ -97,7 +98,10 @@ function randomHex(bytes: number): string {
   return Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-/** Kunci baru per percobaan pesan. Simpan dan pakai ulang saat mencoba lagi dengan keranjang yang sama. */
+/**
+ * Kunci mentah. Jangan dipanggil langsung dari tombol checkout:
+ * pakai `placeOrder()` / `getCheckoutAttemptKey()` supaya kunci dipakai ulang saat coba lagi.
+ */
 export function newIdempotencyKey(): string {
   return `sf-${randomHex(16)}`
 }
@@ -149,6 +153,17 @@ function pageArgs(params: PageParams | undefined): { limit: number; offset: numb
     throw new ApiError('invalid_pagination')
   }
   return { limit, offset }
+}
+
+/**
+ * Urutan yang boleh dikirim. 'delivery_fee' sengaja TIDAK ada: RPC mengurutkannya
+ * dengan tarif lama yang tersimpan, bukan ongkir dari jarak. Nilai lain jatuh ke 'name'.
+ */
+const STORE_SORTS: readonly StoreSort[] = ['name', 'nearest', 'farthest']
+const PRODUCT_SORTS: readonly ProductSort[] = ['name', 'nearest', 'farthest', 'cheapest', 'priciest']
+
+function safeSort<T extends string>(value: string | undefined, allowed: readonly T[]): T {
+  return allowed.includes(value as T) ? (value as T) : allowed[0]
 }
 
 function toPage<T>(items: T[], limit: number, offset: number): Page<T> {
@@ -263,6 +278,16 @@ async function rpc(fn: string, args: Record<string, unknown>): Promise<unknown> 
 
 const rows = (data: unknown): Row[] => (Array.isArray(data) ? (data as Row[]) : [])
 
+/**
+ * Peran pengguna live, diisi AuthContext (Task 3) dari profil yang dibaca dari SERVER
+ * (bukan localStorage). Hanya untuk pengecekan sisi klien; RLS/RPC tetap penentu.
+ */
+let liveSessionRole: Role | null = null
+
+export function setSessionRole(role: Role | null): void {
+  liveSessionRole = role
+}
+
 const liveApi: Api = {
   mode: 'live',
 
@@ -272,7 +297,7 @@ const liveApi: Api = {
       p_query: params?.query?.trim() || null,
       p_latitude: params?.lat ?? null,
       p_longitude: params?.lng ?? null,
-      p_sort: params?.sort ?? 'name',
+      p_sort: safeSort(params?.sort, STORE_SORTS),
       p_limit: limit,
       p_offset: offset,
     })
@@ -288,7 +313,7 @@ const liveApi: Api = {
       p_max_price: params?.maxPrice ?? null,
       p_latitude: params?.lat ?? null,
       p_longitude: params?.lng ?? null,
-      p_sort: params?.sort ?? 'name',
+      p_sort: safeSort(params?.sort, PRODUCT_SORTS),
       p_limit: limit,
       p_offset: offset,
     })
@@ -333,8 +358,9 @@ const liveApi: Api = {
 
   async changeOrderStatus(orderId, newStatus, note) {
     const trimmed = note?.trim() || null
-    if (newStatus === 'cancelled' && !trimmed) throw new ApiError('cancellation_reason_required')
-    if (newStatus === 'rejected' && !trimmed) throw new ApiError('rejection_reason_required')
+    // Pertahanan di sisi klien; backend belum mewajibkan alasan untuk override admin "selesai".
+    const problem = checkStatusChangeByRole(liveSessionRole, newStatus, trimmed)
+    if (problem) throw new ApiError(problem)
     const data = await rpc('change_order_status', {
       p_order_id: orderId,
       p_new_status: newStatus,
@@ -477,7 +503,7 @@ const demoApi: Api = {
           within_service_radius: dist === null ? null : dist <= (s.service_radius_km ?? 0),
         }
       })
-    const sort = params?.sort ?? 'name'
+    const sort = safeSort(params?.sort, STORE_SORTS)
     if (sort === 'nearest') list = sortBy(list, (s) => s.distance_km, 1)
     else if (sort === 'farthest') list = sortBy(list, (s) => s.distance_km, -1)
     else list = sortBy(list, (s) => s.name.toLowerCase(), 1)
@@ -515,7 +541,7 @@ const demoApi: Api = {
         within_service_radius: dist === null ? null : dist <= (s.service_radius_km ?? 0),
       })
     }
-    switch (params?.sort ?? 'name') {
+    switch (safeSort(params?.sort, PRODUCT_SORTS)) {
       case 'nearest':
         list = sortBy(list, (x) => x.distance_km, 1)
         break
@@ -729,3 +755,99 @@ const demoApi: Api = {
 
 /** Adapter aktif: Supabase live bila env valid, data contoh bila tidak. */
 export const api: Api = isMockMode ? demoApi : liveApi
+
+/* ------------------------------------------------------------------ */
+/* Percobaan checkout (R7.8)                                           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Satu kunci idempotency per PERCOBAAN checkout, bukan per tekan tombol:
+ * - kunci disimpan di localStorage bersama "sidik" keranjang (warung + menu + jumlah),
+ *   jadi coba ulang setelah gagal jaringan / muat ulang halaman memakai kunci yang sama;
+ * - kunci diganti hanya bila isi keranjang berubah, atau setelah pesanan berhasil;
+ * - alamat/catatan/pin TIDAK masuk sidik: bila percobaan pertama ternyata sudah masuk
+ *   server, coba ulang mengembalikan pesanan yang sama (tidak dobel) walau alamat diedit.
+ *   Pesanan yang tampil selalu data server, jadi alamat yang benar tetap terlihat.
+ */
+
+const CHECKOUT_ATTEMPT_KEY = 'sendfood.checkout.attempt'
+
+type CheckoutAttempt = { fingerprint: string; key: string }
+
+export type PlaceOrderInput = Omit<CreateOrderInput, 'idempotencyKey'>
+
+/** Sidik keranjang: sama dengan yang dibandingkan server (produk + jumlah) plus warung. */
+function cartFingerprint(input: Pick<CreateOrderInput, 'storeId' | 'items'>): string {
+  const items = [...input.items]
+    .map((i) => `${i.productId}x${i.quantity}`)
+    .sort()
+    .join(',')
+  return `${input.storeId}|${items}`
+}
+
+function readAttempt(): CheckoutAttempt | null {
+  try {
+    const raw = localStorage.getItem(CHECKOUT_ATTEMPT_KEY)
+    const parsed = raw ? (JSON.parse(raw) as CheckoutAttempt) : null
+    return parsed && typeof parsed.key === 'string' && IDEMPOTENCY_KEY_RE.test(parsed.key) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+let memoryAttempt: CheckoutAttempt | null = null
+
+/** Ambil kunci percobaan untuk keranjang ini; buat baru hanya bila belum ada atau keranjang berubah. */
+export function getCheckoutAttemptKey(input: Pick<CreateOrderInput, 'storeId' | 'items'>): string {
+  const fingerprint = cartFingerprint(input)
+  const current = readAttempt() ?? memoryAttempt
+  if (current && current.fingerprint === fingerprint) return current.key
+  const next: CheckoutAttempt = { fingerprint, key: newIdempotencyKey() }
+  memoryAttempt = next
+  try {
+    localStorage.setItem(CHECKOUT_ATTEMPT_KEY, JSON.stringify(next))
+  } catch {
+    // Tetap aman selama tab terbuka (memoryAttempt).
+  }
+  return next.key
+}
+
+/** Lupakan percobaan (setelah berhasil, atau saat keluar akun). */
+export function clearCheckoutAttempt(): void {
+  memoryAttempt = null
+  try {
+    localStorage.removeItem(CHECKOUT_ATTEMPT_KEY)
+  } catch {
+    // abaikan
+  }
+}
+
+const inflight = new Map<string, Promise<CreateOrderResult>>()
+
+/**
+ * Pakai ini dari tombol "Pesan Sekarang" (Task 4).
+ * Klik ganda saat request masih berjalan mendapat promise yang sama;
+ * coba ulang setelah gagal memakai kunci yang sama.
+ */
+export function placeOrder(input: PlaceOrderInput): Promise<CreateOrderResult> {
+  const key = getCheckoutAttemptKey(input)
+  const running = inflight.get(key)
+  if (running) return running
+
+  const promise = api
+    .createOrder({ ...input, idempotencyKey: key })
+    .then((result) => {
+      clearCheckoutAttempt()
+      return result
+    })
+    .catch((err: unknown) => {
+      // Kunci dipakai server untuk isi lain: mulai percobaan baru pada tekan berikutnya.
+      if (err instanceof ApiError && err.code === 'idempotency_key_conflict') clearCheckoutAttempt()
+      throw err
+    })
+    .finally(() => {
+      inflight.delete(key)
+    })
+  inflight.set(key, promise)
+  return promise
+}

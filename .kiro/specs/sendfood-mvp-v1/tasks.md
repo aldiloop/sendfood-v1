@@ -38,17 +38,21 @@ yang dilanggar.
   - [ ] 4.3 StoreDetail: menu + tambah ke keranjang.
   - [ ] 4.4 Cart: ubah jumlah, ringkasan biaya.
   - [ ] 4.5 Checkout: alamat + catatan + koordinat, estimasi ongkir
-    "perkiraan" + peringatan di luar radius; kirim pesanan TANPA ongkir.
-  - [ ] 4.6 Layar pesanan berhasil (kode, COD, status bayar, total).
+    "perkiraan" + peringatan di luar radius; kirim pesanan TANPA ongkir
+    lewat `placeOrder()` (satu kunci idempotency per percobaan; tombol
+    nonaktif selama mengirim).
+  - [ ] 4.6 Layar pesanan berhasil (kode, COD, status bayar, total,
+    + "Bayar tunai ke kurir saat pesanan diterima.").
   - [ ] 4.7 Orders + OrderDetail: timeline status, tombol batal hanya
-    dari `pending_seller` (alasan wajib).
+    dari `pending_seller` (alasan wajib), penjelas COD di detail.
 
 - [ ] 5. Penjual
   - [ ] 5.1 Dashboard: ringkasan hari ini + info warung.
-  - [ ] 5.2 Products: tambah/edit produk (nama, harga, stok,
-    ketersediaan).
-  - [ ] 5.3 Orders: terima/tolak, ubah status sampai `preparing`;
-    batal per aturan aktor (alasan wajib).
+  - [ ] 5.2 Products: tambah/edit produk (nama, harga, deskripsi,
+    toggle "Tersedia"). TANPA field jumlah stok (backend hanya punya
+    `is_available`).
+  - [ ] 5.3 Orders: terima/tolak (tolak wajib alasan), ubah status
+    sampai `ready_for_pickup`; batal per aturan aktor (alasan wajib).
   - [ ] 5.4 StoreProfile: edit warung + kartu Konfigurasi Pengantaran
     read-only (ongkir otomatis dari jarak, radius maks 5 km).
 
@@ -62,7 +66,8 @@ yang dilanggar.
   - [ ] 7.1 Dashboard: metrik hari ini.
   - [ ] 7.2 Orders: semua pesanan, batal dari status mana pun yang
     belum selesai (alasan wajib), tugaskan driver (hanya admin).
-  - [ ] 7.3 Orders: override "tandai selesai" dengan alasan wajib.
+  - [ ] 7.3 Orders: override "tandai selesai" HANYA dari `delivered`
+    (Sudah Sampai), dengan alasan wajib.
   - [ ] 7.4 Stores + Users: daftar warung dan direktori warga.
 
 - [ ] 8. Tema Batik Sogan Solo
